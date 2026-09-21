@@ -18,3 +18,5 @@ def test_at_least_false_for_impossible_future_version():
 def test_before_is_the_inverse_of_at_least():
     assert before("999.0.0") is True
     assert before("0.1.0") is False
+    for v in ("0.1.0", "0.10.0", "0.11.0", "0.12.0", "999.0.0"):
+        assert before(v) is not at_least(v)
