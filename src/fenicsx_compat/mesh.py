@@ -43,3 +43,10 @@ def form_map(form: dolfinx.fem.Form) -> tuple[dolfinx.common.IndexMap, int]:
             form.function_spaces[0].dofmaps[0].index_map,
             form.function_spaces[0].dofmaps[0].index_map_bs,
         )
+
+
+def num_entity_closure_dofs(dof_layout: dolfinx.cpp.fem.ElementDofLayout, dim: int) -> int:
+    """Get the number of dofs in the closure of a `dim`-dimensional entity."""
+    if hasattr(dof_layout, "num_entity_closure_dofs"):
+        return dof_layout.num_entity_closure_dofs(dim)
+    return len(dof_layout.entity_closure_dofs(dim, 0))

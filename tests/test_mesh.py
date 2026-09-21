@@ -2,7 +2,7 @@ import dolfinx.fem
 import dolfinx.mesh
 import ufl
 
-from fenicsx_compat.mesh import cmap, dofmap, form_map
+from fenicsx_compat.mesh import cmap, dofmap, form_map, num_entity_closure_dofs
 
 
 def test_cmap_returns_a_coordinate_element(comm):
@@ -27,3 +27,11 @@ def test_form_map_returns_index_map_and_block_size(comm):
     index_map, bs = form_map(L)
     assert index_map.size_local == V.dofmap.index_map.size_local
     assert bs == V.dofmap.index_map_bs
+
+
+def test_num_entity_closure_dofs_matches_entity_closure_dofs_length(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
+    dof_layout = cmap(msh).create_dof_layout()
+    tdim = msh.topology.dim
+    result = num_entity_closure_dofs(dof_layout, tdim)
+    assert result == len(dof_layout.entity_closure_dofs(tdim, 0))
