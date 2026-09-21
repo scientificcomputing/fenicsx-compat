@@ -25,3 +25,21 @@ def dofmap(mesh: dolfinx.mesh.Mesh) -> npt.NDArray[np.int32]:
     if callable(mesh.geometry.dofmap):
         return mesh.geometry.dofmap()
     return mesh.geometry.dofmap
+
+
+def form_map(form: dolfinx.fem.Form) -> tuple[dolfinx.common.IndexMap, int]:
+    """Get the index map and block size for a linear form's test space.
+
+    `FunctionSpace.dofmaps` was a callable method in older dolfinx and is a
+    subscriptable sequence in newer dolfinx.
+    """
+    try:
+        return (
+            form.function_spaces[0].dofmaps(0).index_map,
+            form.function_spaces[0].dofmaps(0).index_map_bs,
+        )
+    except TypeError:
+        return (
+            form.function_spaces[0].dofmaps[0].index_map,
+            form.function_spaces[0].dofmaps[0].index_map_bs,
+        )
