@@ -145,28 +145,45 @@ def test_apply_lifting_and_set_bc_runs_on_a_simple_poisson_system(comm):
     # can actually detect.
     bc = dolfinx.fem.dirichletbc(7.0, dofs, V)
 
-    # NOTE: the brief specifies `b = dolfinx.fem.petsc.assemble_vector(L)`
-    # (single form, no `kind`), which produces a plain vector with no
-    # `_blocks` attribute. Under Ruling F6's `bcs_by_block` (no except),
-    # `a=[[a]]` must be genuinely 2D for `extract_function_spaces`/
-    # `bcs_by_block` to accept an explicit index (it raises `ValueError:
-    # index must be None for a 1D array of forms` for a flat `a=[a]`,
-    # confirmed) -- but `dolfinx.fem.petsc.apply_lifting` requires a FLAT
-    # `a` when `b` has no `_blocks` attribute (confirmed:
-    # `AttributeError: 'list' object has no attribute '_cpp_object'` when
-    # a 2D `a` reaches a plain `b`). No shape of `a` satisfies both
-    # `dolfinx.fem.petsc` functions simultaneously for a genuinely plain
-    # `b`. `assemble_vector([L], kind="mpi")` builds `b` as a real
-    # (single-block) blocked vector, which is what `a=[[a]]` (2D) actually
-    # requires, and is the exact shape scifem's own tests use for the
-    # non-blocked/"kind=None" analogue (see
-    # third-party/scifem/tests/test_assembly.py:179-183). Verified working
-    # end-to-end (owned bc dofs read back as 7.0) under 1/2/3 ranks; see
-    # task-22-23-report.md for the full repro and reasoning.
+    # This exercises the blocked/nested path (`a` is a list, `a=[[a]]`):
+    # `b` is built as a genuine single-block vector via `kind="mpi"` so it
+    # carries the `_blocks` attribute `apply_lifting`'s block-vector branch
+    # expects to match a 2D `a`. See task-22-23-report.md (Fix round 1) for
+    # why a plain `assemble_vector(L)` (no `_blocks`) does not pair with a
+    # 2D `a`, and test_apply_lifting_and_set_bc_runs_on_a_single_form below
+    # for the companion bare-form path.
     b = dolfinx.fem.petsc.assemble_vector([L], kind="mpi")
     apply_lifting_and_set_bc(b, [[a]], [bc])
 
     # `dofs` is local (owned + ghost); only owned entries land in b.array.
     owned_dofs = dofs[dofs < b.getLocalSize()]
     assert np.allclose(b.array[owned_dofs], 7.0)
+    b.destroy()
+
+
+def test_apply_lifting_and_set_bc_runs_on_a_single_form(comm):
+    # Companion to the blocked-path test above: `a` is passed bare (not a
+    # list), exercising the single-form branch of apply_lifting_and_set_bc,
+    # where a single form has exactly one block so every bc in `bcs` applies
+    # to it (`dolfinx.fem.extract_function_spaces` refuses an explicit index
+    # for a bare single form, so this path is dispatched on `isinstance(a,
+    # (list, tuple))` rather than by catching that).
+    msh = dolfinx.mesh.create_unit_square(comm, 3, 3)
+    V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
+    u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
+    a = dolfinx.fem.form(ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx)
+    L = dolfinx.fem.form(v * ufl.dx)
+
+    tdim = msh.topology.dim
+    msh.topology.create_connectivity(tdim - 1, tdim)
+    facets = dolfinx.mesh.exterior_facet_indices(msh.topology)
+    dofs = dolfinx.fem.locate_dofs_topological(V, tdim - 1, facets)
+    bc = dolfinx.fem.dirichletbc(9.0, dofs, V)
+
+    b = dolfinx.fem.petsc.assemble_vector(L)
+    apply_lifting_and_set_bc(b, a, [bc])
+
+    # `dofs` is local (owned + ghost); only owned entries land in b.array.
+    owned_dofs = dofs[dofs < b.getLocalSize()]
+    assert np.allclose(b.array[owned_dofs], 9.0)
     b.destroy()

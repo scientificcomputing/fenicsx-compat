@@ -75,16 +75,40 @@ if dolfinx.has_petsc4py:
             x: Vector to subtract from the boundary conditions (e.g. in a Newton iteration).
             alpha: Scaling factor for the boundary conditions.
         """
-        # Ruling F6: use this module's own bcs_by_block (Task 21) instead of
-        # scifem's `dolfinx.fem.bcs_by_block` + `except (AssertionError,
-        # ValueError): bcs0 = bcs; bcs1 = bcs` fallback. That fallback hands
-        # every bc to every block, which is silently wrong for blocked/nested
-        # systems. Our bcs_by_block does the containment check directly and
-        # needs no fallback.
-        bcs0 = bcs_by_block(dolfinx.fem.extract_function_spaces(a, 0), bcs)
-        bcs1 = bcs_by_block(dolfinx.fem.extract_function_spaces(a, 1), bcs)
+        # Ruling F6 (revised): use this module's own bcs_by_block (Task 21)
+        # instead of scifem's `dolfinx.fem.bcs_by_block`, which on failure
+        # hands every bc to every space unfiltered -- silently wrong for a
+        # blocked/nested system. That much of scifem's try/except was a real
+        # bug and stays deleted.
+        #
+        # But `dolfinx.fem.extract_function_spaces` also refuses an explicit
+        # index for a bare single form (`ValueError: index must be None for
+        # a single form`, confirmed), and for that case `bcs0 = bcs1 = bcs`
+        # is not a workaround, it is the correct answer: a single form has
+        # exactly one block, so every bc in `bcs` belongs to it. The
+        # docstring above promises "single, blocked, or nested forms", so
+        # single-form support is part of this function's contract and must
+        # stay -- but selected by an explicit, positive check on `a`'s shape
+        # (never by catching whatever exception extract_function_spaces
+        # happens to raise, which could silently swallow an unrelated bug).
+        if isinstance(a, (list, tuple)):
+            # Blocked/nested: `a` is a 2D array of forms, one row per block.
+            bcs0 = bcs_by_block(dolfinx.fem.extract_function_spaces(a, 0), bcs)
+            bcs1 = bcs_by_block(dolfinx.fem.extract_function_spaces(a, 1), bcs)
+            a_lifting = a
+        else:
+            # Single form: one block, so every bc applies to it. `set_bc`
+            # (below) accepts `bcs` in its bare/flat shape directly, but
+            # `dolfinx.fem.petsc.apply_lifting` always wants `a` and `bcs` one
+            # level more nested than that for a plain (non-blocked, non-nest)
+            # vector -- confirmed: a bare `a` raises `TypeError: 'Form'
+            # object is not iterable`, and a flat `bcs` raises `TypeError:
+            # 'DirichletBC' object is not iterable` inside apply_lifting.
+            bcs0 = bcs
+            bcs1 = [bcs]
+            a_lifting = [a]
 
-        dolfinx.fem.petsc.apply_lifting(b, a, bcs=bcs1, x0=x, alpha=alpha)
+        dolfinx.fem.petsc.apply_lifting(b, a_lifting, bcs=bcs1, x0=x, alpha=alpha)
         ghost_update(b, PETSc.InsertMode.ADD_VALUES, PETSc.ScatterMode.REVERSE)
         set_bc(b, bcs0, x0=x, alpha=alpha)
         ghost_update(b, PETSc.InsertMode.INSERT_VALUES, PETSc.ScatterMode.FORWARD)
