@@ -16,3 +16,14 @@ def import_gmshio():
     except ImportError:
         from dolfinx.io import gmshio
     return gmshio
+
+
+def pyvista_allow_snake_case(pyvista) -> None:
+    """Allow snake_case VTK attribute access.
+
+    Across pyvista's `_VTK_SNAKE_CASE_STATE` rename (pyvista 0.47+).
+    """
+    if hasattr(pyvista, "_VTK_SNAKE_CASE_STATE"):
+        pyvista._VTK_SNAKE_CASE_STATE = "allow"
+    else:
+        pyvista.core.vtk_snake_case._state = "allow"

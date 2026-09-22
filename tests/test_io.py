@@ -1,6 +1,6 @@
 import pytest
 
-from fenicsx_compat.io import import_gmshio, resolve_adios_scope
+from fenicsx_compat.io import import_gmshio, pyvista_allow_snake_case, resolve_adios_scope
 
 
 def test_resolve_adios_scope_returns_the_mpi_built_scope():
@@ -26,3 +26,30 @@ def test_import_gmshio_returns_a_module():
     result = import_gmshio()
     assert isinstance(result, types.ModuleType)
     assert hasattr(result, "read_from_msh") or hasattr(result, "model_to_mesh")
+
+
+def test_pyvista_allow_snake_case_sets_new_style_attribute():
+    class FakePyvista:
+        _VTK_SNAKE_CASE_STATE = "forbid"
+
+    fake = FakePyvista()
+    pyvista_allow_snake_case(fake)
+    assert fake._VTK_SNAKE_CASE_STATE == "allow"
+
+
+def test_pyvista_allow_snake_case_falls_back_to_old_style_attribute():
+    class FakeState:
+        _state = "forbid"
+
+    class FakeVtkSnakeCase:
+        _state = FakeState()
+
+    class FakeCore:
+        vtk_snake_case = FakeVtkSnakeCase()
+
+    class FakePyvistaOld:
+        core = FakeCore()
+
+    fake = FakePyvistaOld()
+    pyvista_allow_snake_case(fake)
+    assert fake.core.vtk_snake_case._state == "allow"
