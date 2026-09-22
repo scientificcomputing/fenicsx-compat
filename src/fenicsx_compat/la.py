@@ -1,5 +1,6 @@
 import dolfinx.common
 import dolfinx.cpp.common
+import dolfinx.la
 import numpy as np
 import numpy.typing as npt
 
@@ -31,3 +32,15 @@ def unwrap_index_map(index_map) -> dolfinx.cpp.common.IndexMap:
     if isinstance(index_map, dolfinx.cpp.common.IndexMap):
         return index_map
     return index_map._cpp_object
+
+
+def vector(index_map, bs: int, dtype: npt.DTypeLike = np.float64) -> dolfinx.la.Vector:
+    """Create a distributed vector compatible with an index map and block size.
+
+    `dtype` must stay keyword — it became keyword-only from dolfinx 0.12.
+    Whether `index_map` should be the raw cpp object (0.11) or the Python
+    wrapper (0.12, dolfinx#4496) is handled internally by
+    `dolfinx.la.vector` itself. Never pass `scatterer` — dolfinx 0.11 has
+    no such parameter.
+    """
+    return dolfinx.la.vector(index_map, bs, dtype=dtype)
