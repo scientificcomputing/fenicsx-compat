@@ -39,6 +39,56 @@ if dolfinx.has_petsc4py:
             else:
                 x.ghostUpdate(addv=insert_mode, mode=scatter_mode)
 
+    import dolfinx.fem.petsc
+
+    def set_bc(b: PETSc.Vec, bcs, x0=None, alpha: float = 1.0) -> None:
+        """Set boundary condition values in a vector, across the nested-vs-single-form
+        `set_bc` API."""
+        try:
+            dolfinx.fem.petsc.set_bc(b, bcs, x0=x0, alpha=alpha)
+        except AttributeError:
+            for _bcs in bcs:
+                dolfinx.fem.petsc.set_bc(b, _bcs, x0=x0, alpha=alpha)
+        except TypeError:
+            # bcs shouldn't be a nested list here (e.g. for a single form).
+            assert len(bcs) == 1, "bcs should be a single DirichletBC or a list of DirichletBCs."
+            dolfinx.fem.petsc.set_bc(b, bcs[0], x0=x0, alpha=alpha)
+
+    def apply_lifting_and_set_bc(
+        b: PETSc.Vec,
+        a,
+        bcs,
+        x: PETSc.Vec | None = None,
+        alpha: float = 1.0,
+    ) -> None:
+        r"""Apply lifting to a vector and set boundary conditions.
+
+        Convenience function to apply lifting and set boundary conditions
+        for single, blocked, or nested forms. Modifies `b` such that::
+
+            b = [b_free - alpha * sum_i(a[i] @ (u_bc[i] - x[i])), u_bc[0], ..., u_bc[n]]
+
+        Args:
+            b: The vector to apply lifting to.
+            a: Form or nested sequence of forms to apply lifting from.
+            bcs: The boundary conditions to apply.
+            x: Vector to subtract from the boundary conditions (e.g. in a Newton iteration).
+            alpha: Scaling factor for the boundary conditions.
+        """
+        # Ruling F6: use this module's own bcs_by_block (Task 21) instead of
+        # scifem's `dolfinx.fem.bcs_by_block` + `except (AssertionError,
+        # ValueError): bcs0 = bcs; bcs1 = bcs` fallback. That fallback hands
+        # every bc to every block, which is silently wrong for blocked/nested
+        # systems. Our bcs_by_block does the containment check directly and
+        # needs no fallback.
+        bcs0 = bcs_by_block(dolfinx.fem.extract_function_spaces(a, 0), bcs)
+        bcs1 = bcs_by_block(dolfinx.fem.extract_function_spaces(a, 1), bcs)
+
+        dolfinx.fem.petsc.apply_lifting(b, a, bcs=bcs1, x0=x, alpha=alpha)
+        ghost_update(b, PETSc.InsertMode.ADD_VALUES, PETSc.ScatterMode.REVERSE)
+        set_bc(b, bcs0, x0=x, alpha=alpha)
+        ghost_update(b, PETSc.InsertMode.INSERT_VALUES, PETSc.ScatterMode.FORWARD)
+
 else:
 
     def zero_petsc_vector(b) -> None:
@@ -46,6 +96,14 @@ else:
 
     def ghost_update(x, insert_mode, scatter_mode) -> None:
         raise RuntimeError("petsc4py is not available. Cannot ghost update vector.")
+
+    def set_bc(b, bcs, x0=None, alpha: float = 1.0) -> None:
+        raise RuntimeError("petsc4py is not available. Cannot set boundary conditions.")
+
+    def apply_lifting_and_set_bc(b, a, bcs, x=None, alpha: float = 1.0) -> None:
+        raise RuntimeError(
+            "petsc4py is not available. Cannot apply lifting and set boundary conditions."
+        )
 
 
 def pack_constants(form: dolfinx.fem.Form) -> npt.NDArray:
