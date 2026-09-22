@@ -162,9 +162,7 @@ def create_mesh(
     return dolfinx.mesh.create_mesh(comm, cells, e, x, partitioner=partitioner, **kwargs)
 
 
-def reconstruct_mesh(
-    mesh: dolfinx.mesh.Mesh, coordinate_element_degree: int
-) -> dolfinx.mesh.Mesh:
+def reconstruct_mesh(mesh: dolfinx.mesh.Mesh, coordinate_element_degree: int) -> dolfinx.mesh.Mesh:
     """Copy a mesh, changing its coordinate element degree.
 
     The topology is shared with the original mesh; the geometry is
@@ -203,9 +201,7 @@ def reconstruct_mesh(
     geom_imap = V_tmp.dofmap.index_map
     geom_dofmap = V_tmp.dofmap.list
     num_nodes_local = geom_imap.size_local + geom_imap.num_ghosts
-    original_input_indices = geom_imap.local_to_global(
-        np.arange(num_nodes_local, dtype=np.int32)
-    )
+    original_input_indices = geom_imap.local_to_global(np.arange(num_nodes_local, dtype=np.int32))
     coordinate_element = dolfinx.fem.coordinate_element(
         mesh.topology.cell_type, coordinate_element_degree, lvar, dtype=mesh.geometry.x.dtype
     )

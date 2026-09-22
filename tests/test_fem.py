@@ -178,9 +178,7 @@ def _assert_facet_quadrature_permutations(perms, points):
     else:
         for i in range(len(perms)):
             for j in range(i + 1, len(perms)):
-                assert not np.array_equal(perms[i], perms[j]), (
-                    f"perms {i} and {j} are identical"
-                )
+                assert not np.array_equal(perms[i], perms[j]), f"perms {i} and {j} are identical"
 
 
 def test_permute_facet_quadrature_interval_returns_two_permutations():
