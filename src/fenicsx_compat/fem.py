@@ -64,3 +64,11 @@ def function_space_ctor_kwargs(
         return constructor(mesh_cpp, cpp_element, cpp_dofmap)
     except TypeError:
         return constructor(mesh_cpp, cpp_element, cpp_dofmap, value_shape=value_shape)
+
+
+def interpolate(cpp_function, values: npt.NDArray, cells: npt.NDArray[np.int32]) -> None:
+    """Interpolate raw values into a cpp Function, across the interpolate_f/interpolate rename."""
+    if hasattr(cpp_function, "interpolate_f"):
+        cpp_function.interpolate_f(values, cells)
+    else:
+        cpp_function.interpolate(values, cells)

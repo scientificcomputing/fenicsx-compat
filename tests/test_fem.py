@@ -8,6 +8,7 @@ import pytest
 from fenicsx_compat.fem import (
     finite_element_ctor_kwargs,
     function_space_ctor_kwargs,
+    interpolate,
     interpolation_points,
     real_functionspace,
 )
@@ -76,3 +77,18 @@ def test_function_space_ctor_kwargs_builds_a_space(comm):
         value_shape=(),
     )
     assert cpp_space is not None
+
+
+def test_interpolate_sets_function_values(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
+    V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
+    u = dolfinx.fem.Function(V)
+    num_cells = msh.topology.index_map(msh.topology.dim).size_local
+    cells = np.arange(num_cells, dtype=np.int32)
+    # interpolate_f/interpolate take f shaped (value_size, num_cells * points_per_cell):
+    # one column per interpolation point, per cell in `cells`, in that order.
+    num_points_per_cell = interpolation_points(V).shape[0]
+    values = np.full((1, num_cells * num_points_per_cell), 3.0)
+    interpolate(u._cpp_object, values, cells)
+    u.x.scatter_forward()
+    assert np.allclose(u.x.array, 3.0)
