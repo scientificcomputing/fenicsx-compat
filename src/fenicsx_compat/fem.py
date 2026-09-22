@@ -1,3 +1,5 @@
+import inspect
+
 import basix.ufl
 import dolfinx.fem
 import dolfinx.mesh
@@ -174,7 +176,6 @@ def interpolate_to_submesh_entity_maps(
     entity_maps=None,
 ) -> dolfinx.fem.Expression:
     """Build an Expression, across the `entity_maps`-kwarg-existence split on `Expression`."""
-    try:
+    if "entity_maps" in inspect.signature(dolfinx.fem.Expression).parameters:
         return dolfinx.fem.Expression(volume_function, points, entity_maps=entity_maps)
-    except TypeError:
-        return dolfinx.fem.Expression(volume_function, points)
+    return dolfinx.fem.Expression(volume_function, points)

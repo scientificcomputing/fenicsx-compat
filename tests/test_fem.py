@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import ufl
 
+from fenicsx_compat._dolfinx_version import before
 from fenicsx_compat.fem import (
     expression_eval,
     finite_element_ctor_kwargs,
@@ -144,20 +145,60 @@ def test_expression_eval_matches_direct_eval_call(comm):
 # pre-0.11 the tables are identity copies, post-0.11 they are real
 # permutations, but the count and shape are the same either way. The CI
 # matrix, not a patched version number, is what runs both branches.
+#
+# Beyond count-and-shape, we also assert on the actual values: from 0.11 the
+# returned tables must be pairwise distinct (a broken permutation formula,
+# e.g. dropping the rotation inversion, still returns the right count and
+# shape but collapses some tables onto each other). Pre-0.11, dolfinx applies
+# the permutation internally, so the tables here are identity copies of
+# `points` instead - asserting *that* is what the pre-0.11 leg guarantees.
+# Distinctness would be false there (all rows equal `points`), so it must be
+# gated on the installed dolfinx side, not asserted unconditionally.
+def _assert_facet_quadrature_permutations(perms, points):
+    if before("0.11.0.dev0"):
+        for p in perms:
+            assert np.array_equal(p, points)
+    else:
+        for i in range(len(perms)):
+            for j in range(i + 1, len(perms)):
+                assert not np.array_equal(perms[i], perms[j]), (
+                    f"perms {i} and {j} are identical"
+                )
+
+
 def test_permute_facet_quadrature_interval_returns_two_permutations():
+    # 0.25 != 0.75, and interval reflection maps x -> 1 - x, so the two rows
+    # are not symmetric under the reflection: this is not an accidental tie.
     points = np.array([[0.25], [0.75]])
     perms = permute_facet_quadrature(basix.CellType.interval, points)
     assert len(perms) == 2
     for p in perms:
         assert p.shape == points.shape
+    _assert_facet_quadrature_permutations(perms, points)
 
 
 def test_permute_facet_quadrature_triangle_returns_six_permutations():
-    points = np.array([[0.25, 0.25], [0.5, 0.25]])
+    # Coordinate-asymmetric points: neither row is a fixed point of any
+    # triangle-facet reflection/rotation (e.g. a point like [0.3, 0.7] whose
+    # coordinates are complementary would collapse distinct permutations onto
+    # each other - that is an artifact of the test point, not of the code).
+    points = np.array([[0.1, 0.9], [0.2, 0.6]])
     perms = permute_facet_quadrature(basix.CellType.triangle, points)
     assert len(perms) == 6
     for p in perms:
         assert p.shape == points.shape
+    _assert_facet_quadrature_permutations(perms, points)
+
+
+def test_permute_facet_quadrature_quadrilateral_returns_eight_permutations():
+    # Same asymmetric points as the triangle case, reused here since they are
+    # equally non-degenerate under quadrilateral-facet reflections/rotations.
+    points = np.array([[0.1, 0.9], [0.2, 0.6]])
+    perms = permute_facet_quadrature(basix.CellType.quadrilateral, points)
+    assert len(perms) == 8
+    for p in perms:
+        assert p.shape == points.shape
+    _assert_facet_quadrature_permutations(perms, points)
 
 
 def test_permute_facet_quadrature_rejects_unsupported_cell_type():
