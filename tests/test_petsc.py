@@ -36,5 +36,12 @@ def test_bcs_by_block_assigns_bc_to_matching_space(comm):
 def test_bcs_by_block_returns_empty_list_for_none_space(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
     V0 = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
-    result = bcs_by_block([None, V0], [])
-    assert result == [[], []]
+    tdim = msh.topology.dim
+    msh.topology.create_connectivity(tdim - 1, tdim)
+    facets = dolfinx.mesh.exterior_facet_indices(msh.topology)
+    dofs0 = dolfinx.fem.locate_dofs_topological(V0, tdim - 1, facets)
+    bc0 = dolfinx.fem.dirichletbc(0.0, dofs0, V0)
+
+    result = bcs_by_block([None, V0], [bc0])
+    assert result[0] == []
+    assert result[1] == [bc0]
