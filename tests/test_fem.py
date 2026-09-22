@@ -4,8 +4,10 @@ import dolfinx.fem
 import dolfinx.mesh
 import numpy as np
 import pytest
+import ufl
 
 from fenicsx_compat.fem import (
+    expression_eval,
     finite_element_ctor_kwargs,
     function_space_ctor_kwargs,
     interpolate,
@@ -92,3 +94,36 @@ def test_interpolate_sets_function_values(comm):
     interpolate(u._cpp_object, values, cells)
     u.x.scatter_forward()
     assert np.allclose(u.x.array, 3.0)
+
+
+def test_expression_eval_matches_direct_eval_call(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
+    n = ufl.FacetNormal(msh)
+    tdim = msh.topology.dim
+    msh.topology.create_connectivity(tdim - 1, tdim)
+    facet_indices = dolfinx.mesh.locate_entities_boundary(
+        msh, tdim - 1, lambda x: np.isclose(x[0], 0.0)
+    )
+    msh.topology.create_connectivity(tdim, tdim - 1)
+    f_to_c = msh.topology.connectivity(tdim - 1, tdim)
+    c_to_f = msh.topology.connectivity(tdim, tdim - 1)
+    # On multiple ranks, a rank may own no facets on the x=0 boundary at all
+    # (controller ruling F4): skip on that rank rather than index an empty array.
+    if len(facet_indices) == 0:
+        pytest.skip("no x=0 boundary facets on this rank")
+    facet = facet_indices[0]
+    cell = f_to_c.links(facet)[0]
+    local_facet = np.nonzero(c_to_f.links(cell) == facet)[0][0]
+
+    # Points must be on the *facet* reference element (dimension tdim - 1), not
+    # the cell's: with tdim-wide points, ffcx resolves entity_type="cell" and
+    # rejects FacetNormal (RuntimeError) before expression_eval ever runs.
+    # See scifem/src/scifem/bcs.py, which pulls interpolation points back onto
+    # the facet reference element for exactly this reason. Deviation from the
+    # brief's `np.zeros((1, tdim))`, which errors unconditionally.
+    points = np.zeros((1, tdim - 1))
+    expr = dolfinx.fem.Expression(n, points)
+    entity = np.array([[cell, local_facet]], dtype=np.int32)
+
+    result = expression_eval(expr, msh, entity)
+    assert result.shape[0] == 1

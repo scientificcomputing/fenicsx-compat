@@ -72,3 +72,15 @@ def interpolate(cpp_function, values: npt.NDArray, cells: npt.NDArray[np.int32])
         cpp_function.interpolate_f(values, cells)
     else:
         cpp_function.interpolate(values, cells)
+
+
+def expression_eval(expr, domain, entity: npt.NDArray[np.int32]) -> npt.NDArray:
+    """Evaluate an Expression at integration entities.
+
+    Across dolfinx PR #4140, the entity-array shape for `Expression.eval`
+    changed from a flat 1D array to a 2D `[[cell, local_entity]]` array.
+    """
+    try:
+        return expr.eval(domain, entity)
+    except (AttributeError, AssertionError):
+        return expr.eval(domain, entity.flatten())
