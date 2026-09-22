@@ -77,7 +77,15 @@ def test_create_mesh_respects_explicit_partitioner(comm):
     x = np.array([[0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [2, 1]], dtype=np.float64)
     cells = np.array([[0, 1, 2], [1, 3, 2], [1, 4, 3], [4, 5, 3]], dtype=np.int64)
     calls = []
-    base = dolfinx.graph.partitioner()
+    # Build the base partitioner the version-appropriate way: dolfinx 0.10/0.11
+    # expect create_mesh's `partitioner` to be a *cell* partitioner (what
+    # create_cell_partitioner builds), not the raw graph partitioner nightly
+    # accepts directly - passing the wrong shape raises TypeError inside
+    # dolfinx's C++ layer when it invokes the spy.
+    if hasattr(dolfinx.mesh, "create_cell_partitioner"):
+        base = create_cell_partitioner(dolfinx.mesh.GhostMode.none)
+    else:
+        base = dolfinx.graph.partitioner()
 
     def spy_partitioner(*args, **kwargs):
         calls.append(1)
