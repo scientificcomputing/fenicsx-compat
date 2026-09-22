@@ -14,6 +14,7 @@ from fenicsx_compat.mesh import (
     dofmap,
     form_map,
     num_entity_closure_dofs,
+    reconstruct_mesh,
 )
 
 
@@ -93,3 +94,9 @@ def test_create_cell_partitioner_matches_the_installed_dolfinx_api():
     else:
         with pytest.raises(NotImplementedError, match="removed"):
             create_cell_partitioner(dolfinx.mesh.GhostMode.shared_facet)
+
+
+def test_reconstruct_mesh_changes_coordinate_element_degree(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
+    new_msh = reconstruct_mesh(msh, coordinate_element_degree=2)
+    assert new_msh.geometry.x.shape[0] > msh.geometry.x.shape[0]

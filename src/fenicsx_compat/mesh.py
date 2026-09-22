@@ -3,11 +3,13 @@ from collections.abc import Callable
 
 from mpi4py import MPI
 
+import basix.ufl
 import dolfinx
 import dolfinx.fem
 import dolfinx.graph
 import numpy as np
 import numpy.typing as npt
+import ufl
 
 
 def cmap(mesh: dolfinx.mesh.Mesh) -> dolfinx.fem.CoordinateElement:
@@ -120,3 +122,64 @@ def create_mesh(
             partitioner = create_cell_partitioner(ghost_mode, max_facet_to_cell_links)
 
     return dolfinx.mesh.create_mesh(comm, cells, e, x, partitioner=partitioner, **kwargs)
+
+
+def reconstruct_mesh(
+    mesh: dolfinx.mesh.Mesh, coordinate_element_degree: int
+) -> dolfinx.mesh.Mesh:
+    """Copy a mesh, changing its coordinate element degree.
+
+    The topology is shared with the original mesh; the geometry is
+    reconstructed. Delegates to the native `dolfinx.fem.interpolate_geometry`
+    from dolfinx>=0.11; for 0.10, reconstructs the geometry manually (no
+    native equivalent exists at that version).
+    """
+    if hasattr(dolfinx.fem, "interpolate_geometry"):
+        new_cmap = dolfinx.fem.coordinate_element(
+            mesh.topology.cell_type,
+            coordinate_element_degree,
+            dtype=mesh.geometry.x.dtype,
+            variant=cmap(mesh).variant,
+        )
+        return dolfinx.fem.interpolate_geometry(mesh, new_cmap)
+
+    ud = mesh.ufl_domain()
+    assert ud is not None
+    c_el = ud.ufl_coordinate_element()
+    family = c_el.family_name
+    lvar = c_el.lagrange_variant
+    ct = c_el.cell_type
+
+    new_c_el = basix.ufl.element(
+        family,
+        ct,
+        coordinate_element_degree,
+        shape=(mesh.geometry.dim,),
+        lagrange_variant=lvar,
+        dtype=mesh.geometry.x.dtype,
+    )
+    V_tmp = dolfinx.fem.functionspace(mesh, new_c_el)
+    gdim = mesh.geometry.dim
+    x = V_tmp.tabulate_dof_coordinates()[:, :gdim]
+
+    geom_imap = V_tmp.dofmap.index_map
+    geom_dofmap = V_tmp.dofmap.list
+    num_nodes_local = geom_imap.size_local + geom_imap.num_ghosts
+    original_input_indices = geom_imap.local_to_global(
+        np.arange(num_nodes_local, dtype=np.int32)
+    )
+    coordinate_element = dolfinx.fem.coordinate_element(
+        mesh.topology.cell_type, coordinate_element_degree, lvar, dtype=mesh.geometry.x.dtype
+    )
+    geom = dolfinx.mesh.Geometry(
+        type(mesh.geometry._cpp_object)(
+            geom_imap,
+            geom_dofmap,
+            coordinate_element._cpp_object,
+            x,
+            original_input_indices,
+        )
+    )
+    new_top = mesh.topology
+    cpp_mesh = type(mesh._cpp_object)(mesh.comm, new_top._cpp_object, geom._cpp_object)
+    return dolfinx.mesh.Mesh(cpp_mesh, ufl.Mesh(new_c_el))
