@@ -7,4 +7,6 @@ def require_module(name: str, *, extra: str | None = None) -> ModuleType:
     try:
         return importlib.import_module(name)
     except ImportError as e:
-        raise ImportError(f"{name} is required for this feature: pip install {extra or name}") from e
+        raise ImportError(
+            f"{name} is required for this feature: pip install {extra or name}"
+        ) from e

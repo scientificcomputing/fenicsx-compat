@@ -1,7 +1,6 @@
+import dolfinx
 import numpy as np
 import numpy.typing as npt
-
-import dolfinx
 
 
 def cmap(mesh: dolfinx.mesh.Mesh) -> dolfinx.fem.CoordinateElement:

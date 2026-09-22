@@ -1,6 +1,5 @@
-from packaging.version import Version
-
 import dolfinx
+from packaging.version import Version
 
 DOLFINX_VERSION = Version(dolfinx.__version__)
 
