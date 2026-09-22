@@ -6,7 +6,7 @@ import dolfinx.mesh
 import numpy as np
 import numpy.typing as npt
 
-from fenicsx_compat._dolfinx_version import before
+from fenicsx_compat._dolfinx_version import at_least, before
 
 
 def interpolation_points(V: dolfinx.fem.FunctionSpace) -> npt.NDArray[np.floating]:
@@ -33,20 +33,42 @@ def real_functionspace(
 ) -> dolfinx.fem.FunctionSpace:
     """Create a real (single-constant-per-domain) function space.
 
-    `basix.ufl.real_element` is present across this project's whole
-    supported dolfinx range (confirmed on the v0.10.0 CI leg, whose
-    traceback showed the function existing but rejecting a `dtype`
-    keyword it did not yet accept there). What changed later is that it
-    gained a `dtype` parameter; the exact release is not pinned upstream,
-    so this detects it by `inspect.signature` rather than a version
-    check, and only passes `dtype=` when the installed signature has
-    that parameter.
+    This is a deliberate exception to this project's prefer-introspection
+    rule (spec §4): `basix.ufl.real_element` *exists* and *constructs*
+    successfully on both sides of the dolfinx 0.10/0.11 boundary, so
+    `hasattr` cannot distinguish them. What actually differs is deeper:
+    at dolfinx v0.10.0 the element `real_element` returns is a
+    non-functional stub whose `basix_element` property raises a bare,
+    message-less `NotImplementedError` (confirmed by the v0.10.0 CI
+    traceback: `dolfinx.fem.functionspace` accesses `ufl_e.basix_element`
+    while building the space, which is exactly where it dies). From
+    dolfinx 0.11 that property works and `dolfinx.fem.functionspace`
+    succeeds (confirmed locally on this install, dolfinx 0.12.0.dev0).
+    Since no `hasattr`/signature probe can see into that property without
+    constructing a whole function space, we gate on `at_least("0.11.0")`
+    instead - a hard version check, used here only because introspection
+    genuinely cannot distinguish the behaviour. Do not "fix" this back to
+    an introspection-only check.
 
-    The `hasattr(basix.ufl, "real_element")` guard below is not a
-    supported-version gap: `basix` is a separate package from `dolfinx`
-    and can be version-skewed against it, so a clear NotImplementedError
-    beats an AttributeError deeper in the call.
+    Separately, and unrelated to the above, `real_element` later gained a
+    `dtype` parameter; the exact release is not pinned upstream, so that
+    part *is* detected by `inspect.signature`, and `dtype=` is only
+    passed when the installed signature has that parameter.
+
+    The `hasattr(basix.ufl, "real_element")` guard below covers a
+    different failure mode: `basix` is a separate, independently
+    installable package from `dolfinx`, so it can be version-skewed
+    against it. A clear NotImplementedError beats an AttributeError
+    deeper in the call.
     """
+    if not at_least("0.11.0"):
+        raise NotImplementedError(
+            "real_functionspace requires dolfinx>=0.11.0: at v0.10.0, "
+            "basix.ufl.real_element exists but returns an element whose "
+            "basix_element property raises NotImplementedError, so "
+            "dolfinx.fem.functionspace cannot build a real space from it. "
+            "Use scifem.create_real_functionspace() instead on dolfinx 0.10."
+        )
     if not hasattr(basix.ufl, "real_element"):
         raise NotImplementedError(
             "real_functionspace requires basix.ufl.real_element, which is not present "
@@ -57,7 +79,18 @@ def real_functionspace(
     if "dtype" in inspect.signature(basix.ufl.real_element).parameters:
         kwargs["dtype"] = mesh.geometry.x.dtype
     el = basix.ufl.real_element(mesh.basix_cell(), **kwargs)
-    return dolfinx.fem.functionspace(mesh, el)
+    try:
+        return dolfinx.fem.functionspace(mesh, el)
+    except NotImplementedError as e:
+        raise NotImplementedError(
+            "real_functionspace: dolfinx.fem.functionspace could not build a real "
+            "function space from basix.ufl.real_element on this basix/dolfinx "
+            "install (the underlying error was a bare, message-less "
+            "NotImplementedError from basix's element stub). This is the same "
+            "failure mode observed below dolfinx 0.11; if it is happening above "
+            "that version, this is an unexpected basix/dolfinx pairing - consider "
+            "scifem.create_real_functionspace() as a fallback."
+        ) from e
 
 
 def finite_element_ctor_kwargs(

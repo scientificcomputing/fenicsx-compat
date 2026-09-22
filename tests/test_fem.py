@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import ufl
 
-from fenicsx_compat._dolfinx_version import before
+from fenicsx_compat._dolfinx_version import at_least, before
 from fenicsx_compat.fem import (
     expression_eval,
     finite_element_ctor_kwargs,
@@ -30,22 +30,34 @@ def test_interpolation_points_returns_array(comm):
     assert points.ndim == 2
 
 
-# basix.ufl.real_element is present across every supported dolfinx generation
-# (confirmed by the v0.10.0 CI leg's traceback: the function existed there and
-# failed inside real_functionspace on a dtype-keyword mismatch, not on absence
-# of the function). So the real-element path is exercised unconditionally.
+# basix.ufl.real_element exists on every supported dolfinx generation
+# (confirmed by the v0.10.0 CI leg's traceback), so hasattr cannot tell the
+# versions apart. But at v0.10.0 the element it returns is a stub whose
+# basix_element property raises a bare NotImplementedError, which
+# dolfinx.fem.functionspace cannot consume - confirmed by that same
+# traceback. From dolfinx 0.11 it works (confirmed locally on nightly,
+# 0.12.0.dev0). Gate on the version boundary, not on hasattr.
+HAS_WORKING_REAL_ELEMENT = at_least("0.11.0")
 
 
 def test_real_functionspace_scalar(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
-    V = real_functionspace(msh)
-    assert V.dofmap.index_map.size_global == 1
+    if HAS_WORKING_REAL_ELEMENT:
+        V = real_functionspace(msh)
+        assert V.dofmap.index_map.size_global == 1
+    else:
+        with pytest.raises(NotImplementedError, match="0.11"):
+            real_functionspace(msh)
 
 
 def test_real_functionspace_vector_valued(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
-    V = real_functionspace(msh, value_shape=(2,))
-    assert V.dofmap.index_map.size_global * V.dofmap.index_map_bs == 2
+    if HAS_WORKING_REAL_ELEMENT:
+        V = real_functionspace(msh, value_shape=(2,))
+        assert V.dofmap.index_map.size_global * V.dofmap.index_map_bs == 2
+    else:
+        with pytest.raises(NotImplementedError, match="0.11"):
+            real_functionspace(msh, value_shape=(2,))
 
 
 def test_finite_element_ctor_kwargs_scalar(comm):
