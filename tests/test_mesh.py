@@ -1,3 +1,5 @@
+from mpi4py import MPI
+
 import basix.ufl
 import dolfinx
 import dolfinx.fem
@@ -153,6 +155,26 @@ def test_transfer_meshtags_to_submesh_matches_the_installed_dolfinx(comm):
     if hasattr(dolfinx.mesh, "transfer_meshtags_to_submesh"):
         result = transfer_meshtags_to_submesh(entity_tag, submesh, cell_map, vertex_map)
         assert isinstance(result, dolfinx.mesh.MeshTags)
+        # A merely-truthy isinstance check would still pass if the cell/vertex
+        # maps were swapped internally (wrong entities tagged, or none at
+        # all) -- that is exactly the failure this wrapper's keyword
+        # forwarding was written to prevent. Check the transferred tags are
+        # meaningful: correct dimension, and the tag value 7 actually made
+        # it onto the submesh somewhere across all ranks collectively (a
+        # single rank's local submesh may legitimately receive none of the
+        # tagged facets, so this must be reduced across ranks -- a per-rank
+        # skip/assert before a collective call would deadlock instead).
+        assert result.dim == tdim - 1
+        # The x==0 boundary of a 4x4 unit-square mesh always has exactly 4
+        # facets, regardless of how many ranks the mesh is distributed
+        # across -- verified empirically at 1, 2 and 3 ranks (LAND across a
+        # per-rank "has tag 7" check is NOT safe here: at 3 ranks one rank's
+        # local submesh legitimately holds none of the tagged facets, so
+        # LAND would false-fail; SUM of local occurrences is the invariant
+        # that actually holds at every rank count tried).
+        local_tag_7_count = int(np.sum(result.values == 7))
+        total_tag_7_count = comm.allreduce(local_tag_7_count, op=MPI.SUM)
+        assert total_tag_7_count == 4
     else:
         with pytest.raises(NotImplementedError, match="0.11"):
             transfer_meshtags_to_submesh(entity_tag, submesh, cell_map, vertex_map)

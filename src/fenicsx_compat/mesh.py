@@ -241,6 +241,29 @@ def transfer_meshtags_to_submesh(
     0.10 — scifem's own pre-0.11 fallback calls a compiled `_scifem`
     nanobind extension, and fenicsx-compat ships no compiled extensions
     (see fenicsx-compat design spec §2, §9 item 1).
+
+    IMPORTANT: native dolfinx's own positional argument order for
+    `cell_to_parent`/`vertex_to_parent` is NOT stable across the
+    versions this wrapper supports. v0.11.0's signature is
+    `(entity_tag, submesh, vertex_to_parent, cell_to_parent)`; nightly
+    (0.12.0.dev0) swapped the two to
+    `(entity_tag, submesh, cell_to_parent, vertex_to_parent)`. The
+    parameter *names* are identical across the swap, so this wrapper
+    forwards to native by keyword, never positionally — that is correct
+    on both versions regardless of which one is installed. Forwarding
+    positionally in nightly's order (as an earlier revision of this
+    function did) is silently wrong on 0.11: it hands native the cell
+    map where it expects the vertex map and vice versa, which does not
+    raise a Python exception but corrupts internal state and crashes
+    the process with SIGTERM (observed on this project's stable/0.11 CI
+    leg). Do not "simplify" this back to a positional call.
+
+    This wrapper's own declared parameter order, `(entity_tag, submesh,
+    cell_to_parent, vertex_to_parent)`, is fixed and does not change
+    with the installed dolfinx version — chosen to match nightly's
+    order and `create_submesh`'s `(entity/cell map, vertex map)` return
+    order, so callers can unpack `create_submesh`'s output and forward
+    it directly.
     """
     if not hasattr(dolfinx.mesh, "transfer_meshtags_to_submesh"):
         raise NotImplementedError(
@@ -249,5 +272,8 @@ def transfer_meshtags_to_submesh(
             "compiled fallback."
         )
     return dolfinx.mesh.transfer_meshtags_to_submesh(
-        entity_tag, submesh, cell_to_parent, vertex_to_parent
+        entity_tag,
+        submesh,
+        cell_to_parent=cell_to_parent,
+        vertex_to_parent=vertex_to_parent,
     )
