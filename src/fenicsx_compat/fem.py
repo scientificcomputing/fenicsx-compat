@@ -34,3 +34,33 @@ def real_functionspace(
         mesh.basix_cell(), value_shape=value_shape, dtype=mesh.geometry.x.dtype
     )
     return dolfinx.fem.functionspace(mesh, el)
+
+
+def finite_element_ctor_kwargs(
+    constructor,
+    basix_element,
+    *,
+    value_shape: tuple[int, ...],
+    block_size: int,
+    symmetric: bool = False,
+):
+    """Construct a cpp FiniteElement, across the block_shape/block_size kwarg rename."""
+    try:
+        return constructor(basix_element, block_shape=value_shape, symmetric=symmetric)
+    except TypeError:
+        return constructor(basix_element, block_size=block_size, symmetric=symmetric)
+
+
+def function_space_ctor_kwargs(
+    constructor,
+    mesh_cpp,
+    cpp_element,
+    cpp_dofmap,
+    *,
+    value_shape: tuple[int, ...],
+):
+    """Construct a cpp FunctionSpace, across a `value_shape`-kwarg-existence split."""
+    try:
+        return constructor(mesh_cpp, cpp_element, cpp_dofmap)
+    except TypeError:
+        return constructor(mesh_cpp, cpp_element, cpp_dofmap, value_shape=value_shape)

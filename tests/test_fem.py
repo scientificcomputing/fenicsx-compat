@@ -1,10 +1,16 @@
 import basix.ufl
+import dolfinx.cpp.fem
 import dolfinx.fem
 import dolfinx.mesh
 import numpy as np
 import pytest
 
-from fenicsx_compat.fem import interpolation_points, real_functionspace
+from fenicsx_compat.fem import (
+    finite_element_ctor_kwargs,
+    function_space_ctor_kwargs,
+    interpolation_points,
+    real_functionspace,
+)
 
 
 def test_interpolation_points_returns_array(comm):
@@ -39,3 +45,34 @@ def test_real_functionspace_vector_valued(comm):
     else:
         with pytest.raises(NotImplementedError, match="0.11"):
             real_functionspace(msh, value_shape=(2,))
+
+
+def test_finite_element_ctor_kwargs_scalar(comm):
+    ufl_el = basix.ufl.element("Lagrange", "triangle", 0, discontinuous=True)
+    cpp_el = finite_element_ctor_kwargs(
+        dolfinx.cpp.fem.FiniteElement_float64,
+        ufl_el.basix_element._e,
+        value_shape=(),
+        block_size=1,
+    )
+    assert cpp_el is not None
+
+
+def test_function_space_ctor_kwargs_builds_a_space(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
+    ufl_el = basix.ufl.element("Lagrange", "triangle", 0, discontinuous=True)
+    cpp_el = finite_element_ctor_kwargs(
+        dolfinx.cpp.fem.FiniteElement_float64,
+        ufl_el.basix_element._e,
+        value_shape=(),
+        block_size=1,
+    )
+    cpp_dofmap = dolfinx.cpp.fem.create_dofmap(msh.comm, msh.topology._cpp_object, cpp_el)
+    cpp_space = function_space_ctor_kwargs(
+        dolfinx.cpp.fem.FunctionSpace_float64,
+        msh._cpp_object,
+        cpp_el,
+        cpp_dofmap,
+        value_shape=(),
+    )
+    assert cpp_space is not None
