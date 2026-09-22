@@ -33,21 +33,30 @@ def real_functionspace(
 ) -> dolfinx.fem.FunctionSpace:
     """Create a real (single-constant-per-domain) function space.
 
-    `basix.ufl.real_element` was added in dolfinx 0.11. On dolfinx 0.10,
-    no pure-Python fallback exists — scifem's pre-0.11 fallback calls its
-    compiled `_scifem.create_real_functionspace_float{32,64}` extension
-    (fenicsx-compat ships no compiled extensions, see spec §2), so this
-    raises NotImplementedError instead.
+    `basix.ufl.real_element` is present across this project's whole
+    supported dolfinx range (confirmed on the v0.10.0 CI leg, whose
+    traceback showed the function existing but rejecting a `dtype`
+    keyword it did not yet accept there). What changed later is that it
+    gained a `dtype` parameter; the exact release is not pinned upstream,
+    so this detects it by `inspect.signature` rather than a version
+    check, and only passes `dtype=` when the installed signature has
+    that parameter.
+
+    The `hasattr(basix.ufl, "real_element")` guard below is not a
+    supported-version gap: `basix` is a separate package from `dolfinx`
+    and can be version-skewed against it, so a clear NotImplementedError
+    beats an AttributeError deeper in the call.
     """
     if not hasattr(basix.ufl, "real_element"):
         raise NotImplementedError(
-            "real_functionspace requires dolfinx>=0.11 (basix.ufl.real_element). "
-            "On dolfinx 0.10, use scifem.create_real_functionspace() instead, "
-            "which provides a compiled fallback."
+            "real_functionspace requires basix.ufl.real_element, which is not present "
+            "in the installed basix. This indicates a basix/dolfinx version skew, not "
+            "an unsupported dolfinx release."
         )
-    el = basix.ufl.real_element(
-        mesh.basix_cell(), value_shape=value_shape, dtype=mesh.geometry.x.dtype
-    )
+    kwargs: dict = {"value_shape": value_shape}
+    if "dtype" in inspect.signature(basix.ufl.real_element).parameters:
+        kwargs["dtype"] = mesh.geometry.x.dtype
+    el = basix.ufl.real_element(mesh.basix_cell(), **kwargs)
     return dolfinx.fem.functionspace(mesh, el)
 
 
