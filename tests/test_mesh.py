@@ -101,6 +101,7 @@ def test_reconstruct_mesh_changes_coordinate_element_degree(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
     new_msh = reconstruct_mesh(msh, coordinate_element_degree=2)
     assert new_msh.geometry.x.shape[0] > msh.geometry.x.shape[0]
+    assert cmap(new_msh).degree == 2
 
 
 def test_transfer_meshtags_to_submesh_matches_the_installed_dolfinx(comm):
@@ -124,4 +125,4 @@ def test_transfer_meshtags_to_submesh_matches_the_installed_dolfinx(comm):
         assert isinstance(result, dolfinx.mesh.MeshTags)
     else:
         with pytest.raises(NotImplementedError, match="0.11"):
-            transfer_meshtags_to_submesh(entity_tag, submesh, vertex_map, cell_map)
+            transfer_meshtags_to_submesh(entity_tag, submesh, cell_map, vertex_map)
