@@ -1,8 +1,51 @@
 from collections.abc import Sequence
 
+import dolfinx
 import dolfinx.cpp.fem
 import dolfinx.fem
 import numpy.typing as npt
+
+if dolfinx.has_petsc4py:
+    from petsc4py import PETSc
+
+    try:
+        import dolfinx.la.petsc
+
+        def zero_petsc_vector(b: PETSc.Vec) -> None:
+            """Zero a PETSc vector, including ghosts."""
+            dolfinx.la.petsc._zero_vector(b)
+
+        def ghost_update(x: PETSc.Vec, insert_mode, scatter_mode) -> None:
+            """Ghost-update a PETSc vector."""
+            dolfinx.la.petsc._ghost_update(x, insert_mode, scatter_mode)
+
+    except ModuleNotFoundError:
+
+        def zero_petsc_vector(b: PETSc.Vec) -> None:
+            """Zero a PETSc vector, including ghosts."""
+            if b.getType() == PETSc.Vec.Type.NEST:
+                for b_sub in b.getNestSubVecs():
+                    with b_sub.localForm() as b_local:
+                        b_local.set(0.0)
+            else:
+                with b.localForm() as b_loc:
+                    b_loc.set(0)
+
+        def ghost_update(x: PETSc.Vec, insert_mode, scatter_mode) -> None:
+            """Ghost-update a PETSc vector."""
+            if x.getType() == PETSc.Vec.Type.NEST:
+                for x_sub in x.getNestSubVecs():
+                    x_sub.ghostUpdate(addv=insert_mode, mode=scatter_mode)
+            else:
+                x.ghostUpdate(addv=insert_mode, mode=scatter_mode)
+
+else:
+
+    def zero_petsc_vector(b) -> None:
+        raise RuntimeError("petsc4py is not available. Cannot zero vector.")
+
+    def ghost_update(x, insert_mode, scatter_mode) -> None:
+        raise RuntimeError("petsc4py is not available. Cannot ghost update vector.")
 
 
 def pack_constants(form: dolfinx.fem.Form) -> npt.NDArray:
