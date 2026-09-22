@@ -147,13 +147,30 @@ def test_expression_eval_matches_direct_eval_call(comm):
 # matrix, not a patched version number, is what runs both branches.
 #
 # Beyond count-and-shape, we also assert on the actual values: from 0.11 the
-# returned tables must be pairwise distinct (a broken permutation formula,
-# e.g. dropping the rotation inversion, still returns the right count and
-# shape but collapses some tables onto each other). Pre-0.11, dolfinx applies
-# the permutation internally, so the tables here are identity copies of
-# `points` instead - asserting *that* is what the pre-0.11 leg guarantees.
-# Distinctness would be false there (all rows equal `points`), so it must be
-# gated on the installed dolfinx side, not asserted unconditionally.
+# returned tables must be pairwise distinct, which catches a regression that
+# makes two table entries collide (e.g. a formula that maps two different
+# (reflection, rotation) combinations onto the same permutation). Pre-0.11,
+# dolfinx applies the permutation internally, so the tables here are identity
+# copies of `points` instead - asserting *that* is what the pre-0.11 leg
+# guarantees. Distinctness would be false there (all rows equal `points`), so
+# it must be gated on the installed dolfinx side, not asserted unconditionally.
+#
+# KNOWN GAP: this only checks the SET of returned tables, not their ORDER.
+# Confirmed by direct experiment: patching the triangle branch's
+# `rot_inv = (3 - rot) % 3 if ref == 0 else rot` to the broken `rot_inv = rot`
+# still passes every assertion here, because both formulas are bijections
+# from the same six (rot, ref) loop iterations onto the same six
+# (reflection, rotation) argument pairs - the broken formula just pairs them
+# up differently, so the six output tables come back as the same set in a
+# different order. The `rot_inv` arithmetic is exactly what decides which
+# permutation lands at which index (the index dolfinx looks up via
+# `cell_permutation_info`), so a reordering bug here is real and silently
+# uncaught by this suite. Catching it would require a position-sensitive
+# oracle - e.g. re-deriving dolfinx/ffcx's cell-permutation-index convention
+# independently in the test - which would just restate the implementation
+# and pass for any consistent-but-wrong pairing; not attempted. An end-to-end
+# facet-integration test (not a table-shape one) would be the faithful way to
+# close this gap.
 def _assert_facet_quadrature_permutations(perms, points):
     if before("0.11.0.dev0"):
         for p in perms:
