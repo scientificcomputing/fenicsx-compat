@@ -1,9 +1,21 @@
+from __future__ import annotations
+
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import dolfinx
 import dolfinx.cpp.fem
 import dolfinx.fem
 import numpy.typing as npt
+
+if TYPE_CHECKING:
+    # Gives the `else:` branch below (petsc4py absent) the same `PETSc.Vec`
+    # annotations as the `if` branch, so mypy sees identical conditional
+    # function signatures. Postponed evaluation (`from __future__ import
+    # annotations`, above) means these annotations are never evaluated at
+    # runtime, so this import being TYPE_CHECKING-only (never executed) does
+    # not affect the `else:` branch's runtime behaviour.
+    from petsc4py import PETSc
 
 if dolfinx.has_petsc4py:
     from petsc4py import PETSc
@@ -108,23 +120,30 @@ if dolfinx.has_petsc4py:
             bcs1 = [bcs]
             a_lifting = [a]
 
-        dolfinx.fem.petsc.apply_lifting(b, a_lifting, bcs=bcs1, x0=x, alpha=alpha)
+        # x may be a single Vec (non-blocked form); apply_lifting's stub types
+        # x0 as Sequence[Vec] | None across all call shapes, so a bare Vec
+        # here is a real, version-independent stub-vs-runtime looseness, not
+        # a cross-version seam -- but the runtime accepts it (dolfinx handles
+        # both shapes internally), so this is left as documented behaviour.
+        dolfinx.fem.petsc.apply_lifting(b, a_lifting, bcs=bcs1, x0=x, alpha=alpha)  # type: ignore[arg-type]
         ghost_update(b, PETSc.InsertMode.ADD_VALUES, PETSc.ScatterMode.REVERSE)
         set_bc(b, bcs0, x0=x, alpha=alpha)
         ghost_update(b, PETSc.InsertMode.INSERT_VALUES, PETSc.ScatterMode.FORWARD)
 
 else:
 
-    def zero_petsc_vector(b) -> None:
+    def zero_petsc_vector(b: PETSc.Vec) -> None:
         raise RuntimeError("petsc4py is not available. Cannot zero vector.")
 
-    def ghost_update(x, insert_mode, scatter_mode) -> None:
+    def ghost_update(x: PETSc.Vec, insert_mode, scatter_mode) -> None:
         raise RuntimeError("petsc4py is not available. Cannot ghost update vector.")
 
-    def set_bc(b, bcs, x0=None, alpha: float = 1.0) -> None:
+    def set_bc(b: PETSc.Vec, bcs, x0=None, alpha: float = 1.0) -> None:
         raise RuntimeError("petsc4py is not available. Cannot set boundary conditions.")
 
-    def apply_lifting_and_set_bc(b, a, bcs, x=None, alpha: float = 1.0) -> None:
+    def apply_lifting_and_set_bc(
+        b: PETSc.Vec, a, bcs, x: PETSc.Vec | None = None, alpha: float = 1.0
+    ) -> None:
         raise RuntimeError(
             "petsc4py is not available. Cannot apply lifting and set boundary conditions."
         )

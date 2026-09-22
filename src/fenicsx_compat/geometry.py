@@ -16,6 +16,12 @@ def determine_point_ownership(
     and is not ported).
     """
     try:
-        return dolfinx.cpp.geometry.determine_point_ownership(mesh._cpp_object, points, tol)
+        # Pre-0.9 cpp signature (positional `tol`, cpp mesh object); on this
+        # install the public dolfinx.geometry API (keyword `padding`) is the
+        # right shape, so this call is expected to raise TypeError and fall
+        # through to the except branch below.
+        return dolfinx.cpp.geometry.determine_point_ownership(  # type: ignore[call-overload]
+            mesh._cpp_object, points, tol
+        )
     except TypeError:
         return dolfinx.geometry.determine_point_ownership(mesh, points, padding=tol)

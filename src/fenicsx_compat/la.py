@@ -22,7 +22,12 @@ def create_index_map(
     """
     if hasattr(dolfinx.common, "index_map"):
         return dolfinx.common.index_map(comm, num_local, ghosts=(ghosts, owners), tag=tag)
-    return dolfinx.common.IndexMap(comm, num_local, ghosts, owners, tag=tag)
+    # dolfinx.common.IndexMap's constructor signature is the pre-0.11 shape
+    # (positional ghosts/owners, no tag kwarg on some installs); typeshed here
+    # reflects the newer factory-function shape, so this branch is only
+    # reached -- and only type-checked against the wrong signature -- on
+    # dolfinx versions where it is in fact the right call.
+    return dolfinx.common.IndexMap(comm, num_local, ghosts, owners, tag=tag)  # type: ignore[call-arg]
 
 
 def unwrap_index_map(index_map) -> dolfinx.cpp.common.IndexMap:

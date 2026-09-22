@@ -19,7 +19,11 @@ def interpolation_points(V: dolfinx.fem.FunctionSpace) -> npt.NDArray[np.floatin
     as a property, not a callable method.
     """
     try:
-        return V.element.interpolation_points()
+        # interpolation_points was a callable method pre-dolfinx-0.12; on
+        # this install it is a property (already an ndarray), so calling it
+        # is expected to raise TypeError and fall through to the except
+        # branch below.
+        return V.element.interpolation_points()  # type: ignore[operator]
     except TypeError:
         return V.element.interpolation_points
 

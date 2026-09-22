@@ -59,9 +59,12 @@ def form_map(form: dolfinx.fem.Form) -> tuple[dolfinx.common.IndexMap, int]:
     (the source this was ported from) or in this project's design spec.
     """
     try:
+        # dofmaps() is a callable method pre-dolfinx-0.11; on this install
+        # dofmaps is a subscriptable sequence, so calling it is expected to
+        # raise TypeError and fall through to the except branch below.
         return (
-            form.function_spaces[0].dofmaps(0).index_map,
-            form.function_spaces[0].dofmaps(0).index_map_bs,
+            form.function_spaces[0].dofmaps(0).index_map,  # type: ignore[operator]
+            form.function_spaces[0].dofmaps(0).index_map_bs,  # type: ignore[operator]
         )
     except TypeError:
         return (
@@ -206,17 +209,26 @@ def reconstruct_mesh(
     coordinate_element = dolfinx.fem.coordinate_element(
         mesh.topology.cell_type, coordinate_element_degree, lvar, dtype=mesh.geometry.x.dtype
     )
+    # This package is deliberately generic over the mesh's float32/float64
+    # scalar type, while dolfinx's Geometry/Mesh/CoordinateElement cpp
+    # bindings are separate per-scalar-type overloads (Geometry_float32 vs.
+    # Geometry_float64, etc.) -- mypy cannot narrow which concrete overload
+    # applies here, since both are valid depending on the input mesh's dtype.
     geom = dolfinx.mesh.Geometry(
         type(mesh.geometry._cpp_object)(
-            geom_imap,
+            geom_imap,  # type: ignore[arg-type]
             geom_dofmap,
-            coordinate_element._cpp_object,
+            coordinate_element._cpp_object,  # type: ignore[arg-type]
             x,
             original_input_indices,
         )
     )
     new_top = mesh.topology
-    cpp_mesh = type(mesh._cpp_object)(mesh.comm, new_top._cpp_object, geom._cpp_object)
+    cpp_mesh = type(mesh._cpp_object)(
+        mesh.comm,
+        new_top._cpp_object,
+        geom._cpp_object,  # type: ignore[arg-type]
+    )
     return dolfinx.mesh.Mesh(cpp_mesh, ufl.Mesh(new_c_el))
 
 
