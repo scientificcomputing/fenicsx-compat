@@ -18,6 +18,12 @@ def cmap(mesh: dolfinx.mesh.Mesh) -> dolfinx.fem.CoordinateElement:
     Ported from scifem/io4dolfinx's `compat.cmap`, across three
     generations of `mesh.geometry`'s cmap API: plural `cmaps[]`, callable
     `cmap()`, and attribute `cmap`.
+
+    The exact release boundaries between these three generations are not
+    pinned: scifem and io4dolfinx both detect the shape via `hasattr` /
+    `callable` rather than a version check, and no version or PR number
+    for either transition is recorded in their git history or in this
+    project's design spec (§5.1).
     """
     if hasattr(mesh.geometry, "cmaps"):
         return mesh.geometry.cmaps[0]
@@ -27,7 +33,13 @@ def cmap(mesh: dolfinx.mesh.Mesh) -> dolfinx.fem.CoordinateElement:
 
 
 def dofmap(mesh: dolfinx.mesh.Mesh) -> npt.NDArray[np.int32]:
-    """Get the geometry dofmap for a mesh, across the same generations as `cmap`."""
+    """Get the geometry dofmap for a mesh, across the same generations as `cmap`.
+
+    As with `cmap`, the release boundaries between the `dofmaps[]` /
+    callable `dofmap()` / attribute `dofmap` generations are not pinned;
+    detection is by `hasattr` / `callable` on the installed API's shape,
+    not a version number.
+    """
     if hasattr(mesh.geometry, "dofmaps"):
         return mesh.geometry.dofmaps[0]
     if callable(mesh.geometry.dofmap):
@@ -40,6 +52,11 @@ def form_map(form: dolfinx.fem.Form) -> tuple[dolfinx.common.IndexMap, int]:
 
     `FunctionSpace.dofmaps` was a callable method in older dolfinx and is a
     subscriptable sequence in newer dolfinx.
+
+    The exact release boundary is not pinned; this dispatches on the
+    `TypeError` raised by calling `dofmaps` rather than a version number,
+    because no version reference for this rename is recorded in scifem
+    (the source this was ported from) or in this project's design spec.
     """
     try:
         return (
@@ -54,7 +71,16 @@ def form_map(form: dolfinx.fem.Form) -> tuple[dolfinx.common.IndexMap, int]:
 
 
 def num_entity_closure_dofs(dof_layout: dolfinx.cpp.fem.ElementDofLayout, dim: int) -> int:
-    """Get the number of dofs in the closure of a `dim`-dimensional entity."""
+    """Get the number of dofs in the closure of a `dim`-dimensional entity.
+
+    Spans two generations of `ElementDofLayout`: older dolfinx exposes
+    only `entity_closure_dofs(dim, 0)`, newer dolfinx adds a direct
+    `num_entity_closure_dofs(dim)` method. The exact release boundary is
+    not pinned; this dispatches on `hasattr` rather than a version
+    number, because io4dolfinx (the source this was ported from) and
+    this project's design spec (§5.1) both detect the shape rather than
+    record when it changed.
+    """
     if hasattr(dof_layout, "num_entity_closure_dofs"):
         return dof_layout.num_entity_closure_dofs(dim)
     return len(dof_layout.entity_closure_dofs(dim, 0))
@@ -102,6 +128,15 @@ def create_mesh(
     history. If `partitioner` is given explicitly, it is always used
     as-is (never silently replaced) — `ghost_mode` is still threaded
     through to it on dolfinx generations that support that.
+
+    Generation boundaries: the first-to-second-generation change (adding
+    the `max_facet_to_cell_links` kwarg) has no pinned release or PR
+    reference — both the design spec and io4dolfinx detect it via
+    `inspect.signature` rather than a version check. The second-to-third
+    boundary is pinned: `ghost_mode`/`num_threads` move onto
+    `create_mesh` itself, and `create_cell_partitioner` disappears, post
+    dolfinx PR #4403 (unreleased as of this package's design — see also
+    `create_cell_partitioner`'s docstring).
     """
     sig = inspect.signature(dolfinx.mesh.create_mesh)
     kwargs: dict = {}

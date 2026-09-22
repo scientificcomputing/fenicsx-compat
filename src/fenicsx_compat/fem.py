@@ -10,7 +10,14 @@ from fenicsx_compat._dolfinx_version import before
 
 
 def interpolation_points(V: dolfinx.fem.FunctionSpace) -> npt.NDArray[np.floating]:
-    """Get the interpolation points for a function space, across the method-vs-property rename."""
+    """Get the interpolation points for a function space, across the method-vs-property rename.
+
+    The exact release boundary is not pinned upstream: dolfinx-adjoint
+    (the source this was ported from) dispatches via `try/except
+    TypeError` rather than a version check. As an observed fact on this
+    install, dolfinx 0.12.0.dev0 exposes `element.interpolation_points`
+    as a property, not a callable method.
+    """
     try:
         return V.element.interpolation_points()
     except TypeError:
@@ -48,7 +55,13 @@ def finite_element_ctor_kwargs(
     block_size: int,
     symmetric: bool = False,
 ):
-    """Construct a cpp FiniteElement, across the block_shape/block_size kwarg rename."""
+    """Construct a cpp FiniteElement, across the block_shape/block_size kwarg rename.
+
+    The exact release boundary is not pinned; scifem (the source this
+    was ported from) and this project's design spec (§5.3) both
+    dispatch on the `TypeError` raised by the `block_shape` kwarg rather
+    than a version number.
+    """
     try:
         return constructor(basix_element, block_shape=value_shape, symmetric=symmetric)
     except TypeError:
@@ -63,7 +76,16 @@ def function_space_ctor_kwargs(
     *,
     value_shape: tuple[int, ...],
 ):
-    """Construct a cpp FunctionSpace, across a `value_shape`-kwarg-existence split."""
+    """Construct a cpp FunctionSpace, across a `value_shape`-kwarg-existence split.
+
+    The exact release boundary is not pinned; this dispatches on the
+    `TypeError` raised by omitting `value_shape` rather than a version
+    number. This split tracks the `block_shape`/`block_size` rename in
+    `finite_element_ctor_kwargs` (both changes appear together in
+    scifem's FiniteElement/FunctionSpace construction), and neither
+    scifem nor this project's design spec (§5.3) records a version
+    reference for it.
+    """
     try:
         return constructor(mesh_cpp, cpp_element, cpp_dofmap)
     except TypeError:
