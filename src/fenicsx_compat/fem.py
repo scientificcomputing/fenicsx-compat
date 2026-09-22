@@ -4,6 +4,8 @@ import dolfinx.mesh
 import numpy as np
 import numpy.typing as npt
 
+from fenicsx_compat._dolfinx_version import before
+
 
 def interpolation_points(V: dolfinx.fem.FunctionSpace) -> npt.NDArray[np.floating]:
     """Get the interpolation points for a function space, across the method-vs-property rename."""
@@ -84,3 +86,83 @@ def expression_eval(expr, domain, entity: npt.NDArray[np.int32]) -> npt.NDArray:
         return expr.eval(domain, entity)
     except (AttributeError, AssertionError):
         return expr.eval(domain, entity.flatten())
+
+
+_FACET_PERMUTATION_COUNTS = {
+    basix.CellType.interval: 2,
+    basix.CellType.triangle: 6,
+    basix.CellType.quadrilateral: 8,
+}
+
+
+def permute_facet_quadrature(
+    facet_type: basix.CellType, points: npt.NDArray[np.floating]
+) -> list[npt.NDArray[np.floating]]:
+    """Build the per-permutation facet quadrature point table.
+
+    Before dolfinx PR #4140 (dolfinx<0.11.0.dev0), facet-quadrature-point
+    permutation was handled internally in dolfinx's C++ layer, so the
+    same points apply to every permutation. From 0.11.0.dev0, FFCx
+    expects the caller to precompute the permuted tables itself, via
+    `ffcx.ir.elementtables` (an internal, non-public FFCx module).
+    """
+    if before("0.11.0.dev0"):
+        if facet_type not in _FACET_PERMUTATION_COUNTS:
+            raise ValueError(f"Unsupported facet_type={facet_type!r}")
+        return [points for _ in range(_FACET_PERMUTATION_COUNTS[facet_type])]
+
+    try:
+        from ffcx.ir.elementtables import (
+            permute_quadrature_interval,
+            permute_quadrature_quadrilateral,
+            permute_quadrature_triangle,
+        )
+    except ImportError as e:
+        raise NotImplementedError(
+            "permute_facet_quadrature requires ffcx.ir.elementtables, an internal "
+            "FFCx module; it may have moved in your installed ffcx version."
+        ) from e
+
+    if facet_type == basix.CellType.interval:
+        return [permute_quadrature_interval(points, ref) for ref in range(2)]
+    elif facet_type == basix.CellType.triangle:
+        perms = []
+        for rot in range(3):
+            for ref in range(2):
+                rot_inv = (3 - rot) % 3 if ref == 0 else rot
+                perms.append(permute_quadrature_triangle(points, ref, rot_inv))
+        return perms
+    elif facet_type == basix.CellType.quadrilateral:
+        perms = []
+        for rot in range(4):
+            for ref in range(2):
+                rot_inv = (4 - rot) % 4 if ref == 0 else rot
+                perms.append(permute_quadrature_quadrilateral(points, ref, rot_inv))
+        return perms
+    else:
+        raise ValueError(f"Unsupported facet_type={facet_type!r}")
+
+
+def permute_interpolation_data(
+    data: npt.NDArray,
+    integration_entities: npt.NDArray[np.int32],
+    cell_permutation_info: npt.NDArray[np.uint32],
+    basix_element,
+    facet_type: basix.CellType,
+) -> None:
+    """In-place permute interpolation data for the pre-dolfinx-PR-#4140 dof ordering.
+
+    No-op from dolfinx>=0.11.0.dev0, where dolfinx applies this
+    permutation internally.
+    """
+    if not before("0.11.0.dev0"):
+        return
+    for i in range(integration_entities.shape[0]):
+        perm = np.arange(data.shape[1], dtype=np.int32)
+        basix_element.permute_subentity_closure_inv(
+            perm,
+            cell_permutation_info[integration_entities[i, 0]],
+            facet_type,
+            int(integration_entities[i, 1]),
+        )
+        data[i] = data[i][perm]

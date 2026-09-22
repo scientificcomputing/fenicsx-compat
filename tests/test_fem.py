@@ -14,6 +14,8 @@ from fenicsx_compat.fem import (
     function_space_ctor_kwargs,
     interpolate,
     interpolation_points,
+    permute_facet_quadrature,
+    permute_interpolation_data,
     real_functionspace,
 )
 
@@ -135,3 +137,51 @@ def test_expression_eval_matches_direct_eval_call(comm):
 
     result = expression_eval(expr, msh, entity)
     assert result.shape[0] == 1
+
+
+# These assertions hold on both sides of the dolfinx PR #4140 boundary:
+# pre-0.11 the tables are identity copies, post-0.11 they are real
+# permutations, but the count and shape are the same either way. The CI
+# matrix, not a patched version number, is what runs both branches.
+def test_permute_facet_quadrature_interval_returns_two_permutations():
+    points = np.array([[0.25], [0.75]])
+    perms = permute_facet_quadrature(basix.CellType.interval, points)
+    assert len(perms) == 2
+    for p in perms:
+        assert p.shape == points.shape
+
+
+def test_permute_facet_quadrature_triangle_returns_six_permutations():
+    points = np.array([[0.25, 0.25], [0.5, 0.25]])
+    perms = permute_facet_quadrature(basix.CellType.triangle, points)
+    assert len(perms) == 6
+    for p in perms:
+        assert p.shape == points.shape
+
+
+def test_permute_facet_quadrature_rejects_unsupported_cell_type():
+    points = np.array([[0.25], [0.75]])
+    with pytest.raises(ValueError, match="Unsupported"):
+        permute_facet_quadrature(basix.CellType.tetrahedron, points)
+
+
+def test_permute_interpolation_data_permutes_within_each_row(comm):
+    # Pre-0.11 this reorders each row; from 0.11 it is a no-op. Either way
+    # each row must still hold the same multiset of values, which is what
+    # this asserts, so the same test is meaningful on every CI leg.
+    msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
+    V = dolfinx.fem.functionspace(msh, ("Lagrange", 2))
+    msh.topology.create_entity_permutations()
+    cell_info = msh.topology.get_cell_permutation_info()
+
+    data = np.arange(6, dtype=np.float64).reshape(2, 3)
+    original_rows = [sorted(row) for row in data]
+    permute_interpolation_data(
+        data,
+        integration_entities=np.array([[0, 0], [1, 0]], dtype=np.int32),
+        cell_permutation_info=cell_info,
+        basix_element=V.element.basix_element,
+        facet_type=basix.CellType.interval,
+    )
+    assert data.shape == (2, 3)
+    assert [sorted(row) for row in data] == original_rows
