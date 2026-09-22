@@ -15,6 +15,7 @@ from fenicsx_compat.mesh import (
     form_map,
     num_entity_closure_dofs,
     reconstruct_mesh,
+    transfer_meshtags_to_submesh,
 )
 
 
@@ -100,3 +101,27 @@ def test_reconstruct_mesh_changes_coordinate_element_degree(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
     new_msh = reconstruct_mesh(msh, coordinate_element_degree=2)
     assert new_msh.geometry.x.shape[0] > msh.geometry.x.shape[0]
+
+
+def test_transfer_meshtags_to_submesh_matches_the_installed_dolfinx(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
+    tdim = msh.topology.dim
+    msh.topology.create_connectivity(tdim - 1, tdim)
+    facet_indices = dolfinx.mesh.locate_entities(msh, tdim - 1, lambda x: np.isclose(x[0], 0.0))
+    values = np.full(len(facet_indices), 7, dtype=np.int32)
+    entity_tag = dolfinx.mesh.meshtags(msh, tdim - 1, facet_indices, values)
+
+    num_cells = msh.topology.index_map(tdim).size_local
+    submesh, cell_map, vertex_map, _ = dolfinx.mesh.create_submesh(
+        msh, tdim, np.arange(num_cells, dtype=np.int32)
+    )
+
+    # dolfinx 0.11 made this native; on the v0.10.0 CI leg the compat
+    # function has no pure-Python fallback and says so. Which branch runs
+    # is decided by the installed dolfinx, not by a mock.
+    if hasattr(dolfinx.mesh, "transfer_meshtags_to_submesh"):
+        result = transfer_meshtags_to_submesh(entity_tag, submesh, cell_map, vertex_map)
+        assert isinstance(result, dolfinx.mesh.MeshTags)
+    else:
+        with pytest.raises(NotImplementedError, match="0.11"):
+            transfer_meshtags_to_submesh(entity_tag, submesh, vertex_map, cell_map)

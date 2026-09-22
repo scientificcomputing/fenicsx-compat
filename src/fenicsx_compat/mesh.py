@@ -183,3 +183,28 @@ def reconstruct_mesh(
     new_top = mesh.topology
     cpp_mesh = type(mesh._cpp_object)(mesh.comm, new_top._cpp_object, geom._cpp_object)
     return dolfinx.mesh.Mesh(cpp_mesh, ufl.Mesh(new_c_el))
+
+
+def transfer_meshtags_to_submesh(
+    entity_tag: dolfinx.mesh.MeshTags,
+    submesh: dolfinx.mesh.Mesh,
+    cell_to_parent,
+    vertex_to_parent,
+) -> dolfinx.mesh.MeshTags:
+    """Transfer mesh tags from a parent mesh to a submesh.
+
+    Native since dolfinx 0.11.0 (dolfinx PR #4172, merged 2026-04-23,
+    confirmed absent at the v0.10.0 tag). Raises NotImplementedError on
+    0.10 — scifem's own pre-0.11 fallback calls a compiled `_scifem`
+    nanobind extension, and fenicsx-compat ships no compiled extensions
+    (see fenicsx-compat design spec §2, §9 item 1).
+    """
+    if not hasattr(dolfinx.mesh, "transfer_meshtags_to_submesh"):
+        raise NotImplementedError(
+            "transfer_meshtags_to_submesh requires dolfinx>=0.11.0. On dolfinx 0.10, "
+            "use scifem.transfer_meshtags_to_submesh() instead, which provides a "
+            "compiled fallback."
+        )
+    return dolfinx.mesh.transfer_meshtags_to_submesh(
+        entity_tag, submesh, cell_to_parent, vertex_to_parent
+    )
