@@ -31,3 +31,11 @@ def test_vector_creates_distributed_vector_with_given_dtype(comm):
     assert isinstance(vec, dolfinx.la.Vector)
     assert vec.array.dtype == np.float64
     assert vec.array.shape[0] == 10
+
+
+def test_vector_honours_non_default_dtype(comm):
+    imap = create_index_map(
+        comm, num_local=10, ghosts=np.array([], dtype=np.int64), owners=np.array([], dtype=np.int32)
+    )
+    vec = vector(imap, bs=1, dtype=np.float32)
+    assert vec.array.dtype == np.float32
