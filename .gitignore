@@ -1,4 +1,4 @@
-this-party
+third-party/
 devcontainer-lock.json
 
 # Specs, plans, and other local-only planning docs (never committed)
@@ -179,3 +179,4 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+.superpowers/

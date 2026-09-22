@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fenicsx-compat"
+version = "0.1.0"
+description = "Cross-version compatibility helpers for DOLFINx (FEniCSx)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "Henrik N.T. Finsberg", email = "henriknf@simula.no" },
+    { name = "Jørgen S. Dokken", email = "dokken@simula.no" },
+]
+dependencies = ["fenics-dolfinx>=0.10.0", "packaging"]
+
+[project.optional-dependencies]
+dev = ["ruff", "mypy", "pre-commit"]
+test = ["pytest", "petsc4py"]
+all = ["fenicsx-compat[dev,test]"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib", "--strict-markers"]
+markers = [
+    "serial: single-rank only, excluded from the mpirun leg",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I001"]
+ignore = ["E402", "E741", "E743"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fenicsx_compat"]
+known-third-party = ["basix", "dolfinx", "ffcx", "ufl", "numpy", "pytest"]
+section-order = ["future", "standard-library", "mpi", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.isort.sections]
+mpi = ["mpi4py", "petsc4py"]
+
+[tool.bumpversion]
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+tag = true
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+current_version = "0.1.0"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
