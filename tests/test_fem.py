@@ -1,3 +1,5 @@
+from mpi4py import MPI
+
 import basix.ufl
 import dolfinx.cpp.fem
 import dolfinx.fem
@@ -108,9 +110,15 @@ def test_expression_eval_matches_direct_eval_call(comm):
     f_to_c = msh.topology.connectivity(tdim - 1, tdim)
     c_to_f = msh.topology.connectivity(tdim, tdim - 1)
     # On multiple ranks, a rank may own no facets on the x=0 boundary at all
-    # (controller ruling F4): skip on that rank rather than index an empty array.
-    if len(facet_indices) == 0:
-        pytest.skip("no x=0 boundary facets on this rank")
+    # (controller ruling F4, revised). The skip decision must be COLLECTIVE:
+    # dolfinx.fem.Expression construction below calls jit.ffcx_jit(comm, ...),
+    # which is collective on the mesh's communicator, so a per-rank skip would
+    # let ranks with no boundary facets bail out early while the other ranks
+    # block forever inside the collective JIT call, deadlocking the run.
+    # Using MPI.LAND (not LOR) ensures every rank takes the same branch: if
+    # any rank lacks a facet, all ranks skip together.
+    if not comm.allreduce(len(facet_indices) > 0, op=MPI.LAND):
+        pytest.skip("not every rank owns an x=0 boundary facet")
     facet = facet_indices[0]
     cell = f_to_c.links(facet)[0]
     local_facet = np.nonzero(c_to_f.links(cell) == facet)[0][0]
