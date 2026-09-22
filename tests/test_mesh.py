@@ -54,11 +54,30 @@ def test_num_entity_closure_dofs_matches_entity_closure_dofs_length(comm):
     assert result == len(dof_layout.entity_closure_dofs(tdim, 0))
 
 
+def _two_square_input(comm):
+    """Rank-0-only mesh input.
+
+    `create_mesh` treats each rank's arrays as that rank's share of the
+    input, so passing the full arrays on every rank concatenates them and
+    builds a doubled mesh (8 cells instead of 4 at 2 ranks). dolfinx
+    nightly tolerates that silently; v0.10.0 aborts in C++. Supplying the
+    description on rank 0 and empty arrays elsewhere is the standard
+    idiom and yields the intended 4-cell mesh at any rank count.
+    """
+    if comm.rank == 0:
+        x = np.array([[0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [2, 1]], dtype=np.float64)
+        cells = np.array([[0, 1, 2], [1, 3, 2], [1, 4, 3], [4, 5, 3]], dtype=np.int64)
+    else:
+        x = np.empty((0, 2), dtype=np.float64)
+        cells = np.empty((0, 3), dtype=np.int64)
+    return cells, x
+
+
 def test_create_mesh_default_ghost_mode_none_has_no_ghosts(comm):
     el = basix.ufl.element("Lagrange", "triangle", 1, shape=(2,))
-    x = np.array([[0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [2, 1]], dtype=np.float64)
-    cells = np.array([[0, 1, 2], [1, 3, 2], [1, 4, 3], [4, 5, 3]], dtype=np.int64)
+    cells, x = _two_square_input(comm)
     msh = create_mesh(comm, cells, el, x, ghost_mode=dolfinx.mesh.GhostMode.none)
+    assert msh.topology.index_map(2).size_global == 4
     assert msh.topology.index_map(2).num_ghosts == 0
 
 
@@ -66,16 +85,15 @@ def test_create_mesh_shared_facet_ghost_mode_has_ghosts_under_two_ranks(comm):
     if comm.size < 2:
         pytest.skip("requires at least 2 ranks")
     el = basix.ufl.element("Lagrange", "triangle", 1, shape=(2,))
-    x = np.array([[0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [2, 1]], dtype=np.float64)
-    cells = np.array([[0, 1, 2], [1, 3, 2], [1, 4, 3], [4, 5, 3]], dtype=np.int64)
+    cells, x = _two_square_input(comm)
     msh = create_mesh(comm, cells, el, x, ghost_mode=dolfinx.mesh.GhostMode.shared_facet)
+    assert msh.topology.index_map(2).size_global == 4
     assert msh.topology.index_map(2).num_ghosts > 0
 
 
 def test_create_mesh_respects_explicit_partitioner(comm):
     el = basix.ufl.element("Lagrange", "triangle", 1, shape=(2,))
-    x = np.array([[0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [2, 1]], dtype=np.float64)
-    cells = np.array([[0, 1, 2], [1, 3, 2], [1, 4, 3], [4, 5, 3]], dtype=np.int64)
+    cells, x = _two_square_input(comm)
     calls = []
     # Build the base partitioner the version-appropriate way: dolfinx 0.10/0.11
     # expect create_mesh's `partitioner` to be a *cell* partitioner (what
@@ -91,7 +109,8 @@ def test_create_mesh_respects_explicit_partitioner(comm):
         calls.append(1)
         return base(*args, **kwargs)
 
-    create_mesh(comm, cells, el, x, partitioner=spy_partitioner)
+    msh = create_mesh(comm, cells, el, x, partitioner=spy_partitioner)
+    assert msh.topology.index_map(2).size_global == 4
     if comm.size > 1:
         assert calls, "explicit partitioner must be used, not silently replaced"
 
