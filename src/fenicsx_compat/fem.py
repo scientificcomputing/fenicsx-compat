@@ -166,3 +166,15 @@ def permute_interpolation_data(
             int(integration_entities[i, 1]),
         )
         data[i] = data[i][perm]
+
+
+def interpolate_to_submesh_entity_maps(
+    volume_function: dolfinx.fem.Function,
+    points: npt.NDArray[np.floating],
+    entity_maps=None,
+) -> dolfinx.fem.Expression:
+    """Build an Expression, across the `entity_maps`-kwarg-existence split on `Expression`."""
+    try:
+        return dolfinx.fem.Expression(volume_function, points, entity_maps=entity_maps)
+    except TypeError:
+        return dolfinx.fem.Expression(volume_function, points)

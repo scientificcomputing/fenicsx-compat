@@ -13,6 +13,7 @@ from fenicsx_compat.fem import (
     finite_element_ctor_kwargs,
     function_space_ctor_kwargs,
     interpolate,
+    interpolate_to_submesh_entity_maps,
     interpolation_points,
     permute_facet_quadrature,
     permute_interpolation_data,
@@ -185,3 +186,15 @@ def test_permute_interpolation_data_permutes_within_each_row(comm):
     )
     assert data.shape == (2, 3)
     assert [sorted(row) for row in data] == original_rows
+
+
+def test_interpolate_to_submesh_entity_maps_builds_expression(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
+    V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
+    u = dolfinx.fem.Function(V)
+    # Ruling F3: route through the package's own interpolation_points() helper
+    # rather than the raw `V.element.interpolation_points` attribute, which is
+    # a method (not a property) on the dolfinx v0.10.0 CI leg.
+    points = interpolation_points(V)
+    expr = interpolate_to_submesh_entity_maps(u, points)
+    assert isinstance(expr, dolfinx.fem.Expression)
