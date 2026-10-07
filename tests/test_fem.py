@@ -50,8 +50,10 @@ def test_real_functionspace_vector_valued(comm):
             real_functionspace(msh, value_shape=(2,))
 
 
-@pytest.mark.parametrize("value_shape, value_size, space_dimension", [(None, 1, 3), ((2,), 2, 6)])
-def test_finite_element_ctor_kwargs_blocks_the_element(value_shape, value_size, space_dimension):
+# Only `value_shape` and `space_dimension` exist on the cpp FiniteElement in every
+# supported generation; `value_size` is new in nightly.
+@pytest.mark.parametrize("value_shape, shape, space_dimension", [(None, (), 3), ((2,), (2,), 6)])
+def test_finite_element_ctor_kwargs_blocks_the_element(value_shape, shape, space_dimension):
     ufl_el = basix.ufl.element("Lagrange", "triangle", 1)
     cpp_el = finite_element_ctor_kwargs(
         dolfinx.cpp.fem.FiniteElement_float64,
@@ -59,7 +61,7 @@ def test_finite_element_ctor_kwargs_blocks_the_element(value_shape, value_size, 
         gdim=2,
         value_shape=value_shape,
     )
-    assert cpp_el.value_size == value_size
+    assert tuple(cpp_el.value_shape) == shape
     assert cpp_el.space_dimension == space_dimension
 
 
