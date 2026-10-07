@@ -4,9 +4,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import dolfinx
-import dolfinx.cpp.fem
 import dolfinx.fem
-import numpy.typing as npt
 
 if TYPE_CHECKING:
     # Gives the `else:` branch below (petsc4py absent) the same `PETSc.Vec`
@@ -20,36 +18,17 @@ if TYPE_CHECKING:
 if dolfinx.has_petsc4py:
     from petsc4py import PETSc
 
-    try:
-        import dolfinx.la.petsc
+    # dolfinx.la.petsc's vector helpers are private API, wrapped here so a
+    # rename upstream only needs fixing in one place.
+    import dolfinx.la.petsc
 
-        def zero_petsc_vector(b: PETSc.Vec) -> None:
-            """Zero a PETSc vector, including ghosts."""
-            dolfinx.la.petsc._zero_vector(b)
+    def zero_petsc_vector(b: PETSc.Vec) -> None:
+        """Zero a PETSc vector, including ghosts."""
+        dolfinx.la.petsc._zero_vector(b)
 
-        def ghost_update(x: PETSc.Vec, insert_mode, scatter_mode) -> None:
-            """Ghost-update a PETSc vector."""
-            dolfinx.la.petsc._ghost_update(x, insert_mode, scatter_mode)
-
-    except ModuleNotFoundError:
-
-        def zero_petsc_vector(b: PETSc.Vec) -> None:
-            """Zero a PETSc vector, including ghosts."""
-            if b.getType() == PETSc.Vec.Type.NEST:
-                for b_sub in b.getNestSubVecs():
-                    with b_sub.localForm() as b_local:
-                        b_local.set(0.0)
-            else:
-                with b.localForm() as b_loc:
-                    b_loc.set(0)
-
-        def ghost_update(x: PETSc.Vec, insert_mode, scatter_mode) -> None:
-            """Ghost-update a PETSc vector."""
-            if x.getType() == PETSc.Vec.Type.NEST:
-                for x_sub in x.getNestSubVecs():
-                    x_sub.ghostUpdate(addv=insert_mode, mode=scatter_mode)
-            else:
-                x.ghostUpdate(addv=insert_mode, mode=scatter_mode)
+    def ghost_update(x: PETSc.Vec, insert_mode, scatter_mode) -> None:
+        """Ghost-update a PETSc vector."""
+        dolfinx.la.petsc._ghost_update(x, insert_mode, scatter_mode)
 
     import dolfinx.fem.petsc
 
@@ -147,22 +126,6 @@ else:
         raise RuntimeError(
             "petsc4py is not available. Cannot apply lifting and set boundary conditions."
         )
-
-
-def pack_constants(form: dolfinx.fem.Form) -> npt.NDArray:
-    """Pack a form's constants, across the public-API-vs-cpp-object split."""
-    try:
-        return dolfinx.fem.pack_constants(form)
-    except AttributeError:
-        return dolfinx.cpp.fem.pack_constants(form._cpp_object)
-
-
-def pack_coefficients(form: dolfinx.fem.Form) -> dict:
-    """Pack a form's coefficients, across the public-API-vs-cpp-object split."""
-    try:
-        return dolfinx.fem.pack_coefficients(form)
-    except AttributeError:
-        return dolfinx.cpp.fem.pack_coefficients(form._cpp_object)
 
 
 def bcs_by_block(

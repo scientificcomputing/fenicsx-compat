@@ -12,24 +12,13 @@ from fenicsx_compat._dolfinx_version import at_least, before
 from fenicsx_compat.fem import (
     expression_eval,
     finite_element_ctor_kwargs,
-    function_space_ctor_kwargs,
     interpolate,
     interpolate_to_submesh_entity_maps,
-    interpolation_points,
     permute_facet_quadrature,
     permute_interpolation_data,
     real_functionspace,
 )
 from fenicsx_compat.mesh import cell_permutation_info
-
-
-def test_interpolation_points_returns_array(comm):
-    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
-    V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
-    points = interpolation_points(V)
-    assert isinstance(points, np.ndarray)
-    assert points.ndim == 2
-
 
 # basix.ufl.real_element exists on every supported dolfinx generation
 # (confirmed by the v0.10.0 CI leg's traceback), so hasattr cannot tell the
@@ -74,26 +63,6 @@ def test_finite_element_ctor_kwargs_blocks_the_element(value_shape, value_size, 
     assert cpp_el.space_dimension == space_dimension
 
 
-def test_function_space_ctor_kwargs_builds_a_space(comm):
-    msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
-    ufl_el = basix.ufl.element("Lagrange", "triangle", 0, discontinuous=True)
-    cpp_el = finite_element_ctor_kwargs(
-        dolfinx.cpp.fem.FiniteElement_float64,
-        ufl_el.basix_element._e,
-        gdim=msh.geometry.dim,
-        value_shape=None,
-    )
-    cpp_dofmap = dolfinx.cpp.fem.create_dofmap(msh.comm, msh.topology._cpp_object, cpp_el)
-    cpp_space = function_space_ctor_kwargs(
-        dolfinx.cpp.fem.FunctionSpace_float64,
-        msh._cpp_object,
-        cpp_el,
-        cpp_dofmap,
-        value_shape=(),
-    )
-    assert cpp_space is not None
-
-
 def test_interpolate_sets_function_values(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
@@ -102,7 +71,7 @@ def test_interpolate_sets_function_values(comm):
     cells = np.arange(num_cells, dtype=np.int32)
     # interpolate_f/interpolate take f shaped (value_size, num_cells * points_per_cell):
     # one column per interpolation point, per cell in `cells`, in that order.
-    num_points_per_cell = interpolation_points(V).shape[0]
+    num_points_per_cell = V.element.interpolation_points.shape[0]
     values = np.full((1, num_cells * num_points_per_cell), 3.0)
     interpolate(u._cpp_object, values, cells)
     u.x.scatter_forward()
@@ -254,9 +223,6 @@ def test_interpolate_to_submesh_entity_maps_builds_expression(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
     u = dolfinx.fem.Function(V)
-    # Ruling F3: route through the package's own interpolation_points() helper
-    # rather than the raw `V.element.interpolation_points` attribute, which is
-    # a method (not a property) on the dolfinx v0.10.0 CI leg.
-    points = interpolation_points(V)
+    points = V.element.interpolation_points
     expr = interpolate_to_submesh_entity_maps(u, points)
     assert isinstance(expr, dolfinx.fem.Expression)

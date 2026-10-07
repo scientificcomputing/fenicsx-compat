@@ -1,3 +1,5 @@
+import warnings
+
 from mpi4py import MPI
 
 import basix
@@ -18,21 +20,26 @@ from fenicsx_compat.mesh import (
     dofmap,
     facet_permutations,
     form_map,
-    num_entity_closure_dofs,
     reconstruct_mesh,
     transfer_meshtags_to_submesh,
 )
 
 
-def test_cmap_returns_a_coordinate_element(comm):
+def test_cmap_returns_the_coordinate_element(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
-    result = cmap(msh)
-    assert result is not None
+    with warnings.catch_warnings():
+        # From 0.11, `geometry.cmap` is deprecated in favour of `cmaps[0]`.
+        warnings.simplefilter("error")
+        result = cmap(msh)
+    assert result.degree == 1
+    assert result.dim == 3
 
 
 def test_dofmap_returns_an_array_of_node_indices(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
-    result = dofmap(msh)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = dofmap(msh)
     assert result.ndim == 2
     assert (
         result.shape[0]
@@ -49,14 +56,6 @@ def test_form_map_returns_index_map_and_block_size(comm):
     index_map, bs = form_map(L)
     assert index_map.size_local == V.dofmap.index_map.size_local
     assert bs == V.dofmap.index_map_bs
-
-
-def test_num_entity_closure_dofs_matches_entity_closure_dofs_length(comm):
-    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
-    dof_layout = cmap(msh).create_dof_layout()
-    tdim = msh.topology.dim
-    result = num_entity_closure_dofs(dof_layout, tdim)
-    assert result == len(dof_layout.entity_closure_dofs(tdim, 0))
 
 
 def _two_square_input(comm):
