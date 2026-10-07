@@ -20,6 +20,7 @@ from fenicsx_compat.fem import (
     permute_interpolation_data,
     real_functionspace,
 )
+from fenicsx_compat.mesh import cell_permutation_info
 
 
 def test_interpolation_points_returns_array(comm):
@@ -60,15 +61,17 @@ def test_real_functionspace_vector_valued(comm):
             real_functionspace(msh, value_shape=(2,))
 
 
-def test_finite_element_ctor_kwargs_scalar(comm):
-    ufl_el = basix.ufl.element("Lagrange", "triangle", 0, discontinuous=True)
+@pytest.mark.parametrize("value_shape, value_size, space_dimension", [(None, 1, 3), ((2,), 2, 6)])
+def test_finite_element_ctor_kwargs_blocks_the_element(value_shape, value_size, space_dimension):
+    ufl_el = basix.ufl.element("Lagrange", "triangle", 1)
     cpp_el = finite_element_ctor_kwargs(
         dolfinx.cpp.fem.FiniteElement_float64,
         ufl_el.basix_element._e,
-        value_shape=(),
-        block_size=1,
+        gdim=2,
+        value_shape=value_shape,
     )
-    assert cpp_el is not None
+    assert cpp_el.value_size == value_size
+    assert cpp_el.space_dimension == space_dimension
 
 
 def test_function_space_ctor_kwargs_builds_a_space(comm):
@@ -77,8 +80,8 @@ def test_function_space_ctor_kwargs_builds_a_space(comm):
     cpp_el = finite_element_ctor_kwargs(
         dolfinx.cpp.fem.FiniteElement_float64,
         ufl_el.basix_element._e,
-        value_shape=(),
-        block_size=1,
+        gdim=msh.geometry.dim,
+        value_shape=None,
     )
     cpp_dofmap = dolfinx.cpp.fem.create_dofmap(msh.comm, msh.topology._cpp_object, cpp_el)
     cpp_space = function_space_ctor_kwargs(
@@ -232,8 +235,7 @@ def test_permute_interpolation_data_permutes_within_each_row(comm):
     # this asserts, so the same test is meaningful on every CI leg.
     msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 2))
-    msh.topology.create_entity_permutations()
-    cell_info = msh.topology.get_cell_permutation_info()
+    cell_info = cell_permutation_info(msh.topology)
 
     data = np.arange(6, dtype=np.float64).reshape(2, 3)
     original_rows = [sorted(row) for row in data]

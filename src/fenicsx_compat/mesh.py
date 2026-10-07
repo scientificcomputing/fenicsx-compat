@@ -89,6 +89,46 @@ def num_entity_closure_dofs(dof_layout: dolfinx.cpp.fem.ElementDofLayout, dim: i
     return len(dof_layout.entity_closure_dofs(dim, 0))
 
 
+def cell_permutation_info(topology: dolfinx.mesh.Topology) -> npt.NDArray[np.uint32]:
+    """Compute and return the packed per-cell permutation info, ghost cells included.
+
+    dolfinx 0.10 and 0.11 compute it, together with the facet
+    permutations, in a single argument-free
+    `topology.create_entity_permutations()`. dolfinx PR #3904 (post-0.11)
+    split that into `create_cell_permutations()` and a per-dimension
+    `create_entity_permutations(dim)`. Dispatches on `hasattr`.
+    """
+    if hasattr(topology, "create_cell_permutations"):
+        topology.create_cell_permutations()
+    else:
+        topology.create_entity_permutations()  # type: ignore[call-arg]
+    return topology.get_cell_permutation_info()
+
+
+def facet_permutations(topology: dolfinx.mesh.Topology) -> npt.NDArray[np.uint8]:
+    """Compute and return the permutation of every facet of every cell.
+
+    Shape `(num_cells, num_facets_per_cell)`, ghost cells included. Each
+    value encodes the facet's orientation as seen from the cell, as used
+    for FFCx's `quadrature_permutation`.
+
+    Across the same dolfinx PR #3904 split as `cell_permutation_info`:
+    0.10 and 0.11 expose these via `get_facet_permutations()` after an
+    argument-free `create_entity_permutations()`; from #3904 they are
+    `get_entity_permutations(tdim - 1)` after
+    `create_entity_permutations(tdim - 1)`. Both return a flat array.
+    """
+    fdim = topology.dim - 1
+    if hasattr(topology, "create_cell_permutations"):
+        topology.create_entity_permutations(fdim)
+        perms = topology.get_entity_permutations(fdim)
+    else:
+        topology.create_entity_permutations()  # type: ignore[call-arg]
+        perms = topology.get_facet_permutations()  # type: ignore[attr-defined]
+    num_facets_per_cell = dolfinx.cpp.mesh.cell_num_entities(topology.cell_type, fdim)
+    return np.asarray(perms).reshape(-1, num_facets_per_cell)
+
+
 def create_cell_partitioner(
     ghost_mode: dolfinx.mesh.GhostMode,
     max_facet_to_cell_links: int = 2,

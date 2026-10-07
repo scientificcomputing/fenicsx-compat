@@ -1,5 +1,6 @@
 from mpi4py import MPI
 
+import basix
 import basix.ufl
 import dolfinx
 import dolfinx.fem
@@ -10,10 +11,12 @@ import pytest
 import ufl
 
 from fenicsx_compat.mesh import (
+    cell_permutation_info,
     cmap,
     create_cell_partitioner,
     create_mesh,
     dofmap,
+    facet_permutations,
     form_map,
     num_entity_closure_dofs,
     reconstruct_mesh,
@@ -178,3 +181,44 @@ def test_transfer_meshtags_to_submesh_matches_the_installed_dolfinx(comm):
     else:
         with pytest.raises(NotImplementedError, match="0.11"):
             transfer_meshtags_to_submesh(entity_tag, submesh, cell_map, vertex_map)
+
+
+def _expected_edge_reflections(topology):
+    """Reflection of each edge of each triangle, derived independently.
+
+    dolfinx orients an entity by its vertices' global indices, low to
+    high; an edge is reflected when the cell's reference ordering of its
+    two vertices runs high to low.
+    """
+    tdim = topology.dim
+    num_cells = topology.index_map(tdim).size_local + topology.index_map(tdim).num_ghosts
+    c_to_v = topology.connectivity(tdim, 0)
+    vertex_map = topology.index_map(0)
+    ref_edges = basix.topology(basix.CellType.triangle)[1]
+    expected = np.zeros((num_cells, len(ref_edges)), dtype=np.uint8)
+    for c in range(num_cells):
+        gv = vertex_map.local_to_global(c_to_v.links(c).astype(np.int32))
+        for e, (a, b) in enumerate(ref_edges):
+            expected[c, e] = gv[a] > gv[b]
+    return expected
+
+
+def test_facet_permutations_match_global_vertex_ordering(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 5, 5)
+    result = facet_permutations(msh.topology)
+    expected = _expected_edge_reflections(msh.topology)
+    assert result.shape == expected.shape
+    np.testing.assert_array_equal(result, expected)
+    # Guard against a vacuous pass: the mesh has edges in both orientations.
+    assert comm.allreduce(int(result.sum()), op=MPI.SUM) > 0
+    assert comm.allreduce(int((result == 0).sum()), op=MPI.SUM) > 0
+
+
+def test_cell_permutation_info_encodes_edge_reflections(comm):
+    # For a 2D cell, bit `e` of the packed info is the reflection of edge `e`.
+    msh = dolfinx.mesh.create_unit_square(comm, 5, 5)
+    info = cell_permutation_info(msh.topology)
+    expected = _expected_edge_reflections(msh.topology)
+    assert info.shape == (expected.shape[0],)
+    bits = (info[:, None] >> np.arange(3, dtype=info.dtype)) & 1
+    np.testing.assert_array_equal(bits, expected)
