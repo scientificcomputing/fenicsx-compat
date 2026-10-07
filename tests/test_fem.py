@@ -12,23 +12,13 @@ from fenicsx_compat._dolfinx_version import at_least, before
 from fenicsx_compat.fem import (
     expression_eval,
     finite_element_ctor_kwargs,
-    function_space_ctor_kwargs,
     interpolate,
     interpolate_to_submesh_entity_maps,
-    interpolation_points,
     permute_facet_quadrature,
     permute_interpolation_data,
     real_functionspace,
 )
-
-
-def test_interpolation_points_returns_array(comm):
-    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
-    V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
-    points = interpolation_points(V)
-    assert isinstance(points, np.ndarray)
-    assert points.ndim == 2
-
+from fenicsx_compat.mesh import cell_permutation_info
 
 # basix.ufl.real_element exists on every supported dolfinx generation
 # (confirmed by the v0.10.0 CI leg's traceback), so hasattr cannot tell the
@@ -60,35 +50,19 @@ def test_real_functionspace_vector_valued(comm):
             real_functionspace(msh, value_shape=(2,))
 
 
-def test_finite_element_ctor_kwargs_scalar(comm):
-    ufl_el = basix.ufl.element("Lagrange", "triangle", 0, discontinuous=True)
+# Only `value_shape` and `space_dimension` exist on the cpp FiniteElement in every
+# supported generation; `value_size` is new in nightly.
+@pytest.mark.parametrize("value_shape, shape, space_dimension", [(None, (), 3), ((2,), (2,), 6)])
+def test_finite_element_ctor_kwargs_blocks_the_element(value_shape, shape, space_dimension):
+    ufl_el = basix.ufl.element("Lagrange", "triangle", 1)
     cpp_el = finite_element_ctor_kwargs(
         dolfinx.cpp.fem.FiniteElement_float64,
         ufl_el.basix_element._e,
-        value_shape=(),
-        block_size=1,
+        gdim=2,
+        value_shape=value_shape,
     )
-    assert cpp_el is not None
-
-
-def test_function_space_ctor_kwargs_builds_a_space(comm):
-    msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
-    ufl_el = basix.ufl.element("Lagrange", "triangle", 0, discontinuous=True)
-    cpp_el = finite_element_ctor_kwargs(
-        dolfinx.cpp.fem.FiniteElement_float64,
-        ufl_el.basix_element._e,
-        value_shape=(),
-        block_size=1,
-    )
-    cpp_dofmap = dolfinx.cpp.fem.create_dofmap(msh.comm, msh.topology._cpp_object, cpp_el)
-    cpp_space = function_space_ctor_kwargs(
-        dolfinx.cpp.fem.FunctionSpace_float64,
-        msh._cpp_object,
-        cpp_el,
-        cpp_dofmap,
-        value_shape=(),
-    )
-    assert cpp_space is not None
+    assert tuple(cpp_el.value_shape) == shape
+    assert cpp_el.space_dimension == space_dimension
 
 
 def test_interpolate_sets_function_values(comm):
@@ -99,7 +73,7 @@ def test_interpolate_sets_function_values(comm):
     cells = np.arange(num_cells, dtype=np.int32)
     # interpolate_f/interpolate take f shaped (value_size, num_cells * points_per_cell):
     # one column per interpolation point, per cell in `cells`, in that order.
-    num_points_per_cell = interpolation_points(V).shape[0]
+    num_points_per_cell = V.element.interpolation_points.shape[0]
     values = np.full((1, num_cells * num_points_per_cell), 3.0)
     interpolate(u._cpp_object, values, cells)
     u.x.scatter_forward()
@@ -232,8 +206,7 @@ def test_permute_interpolation_data_permutes_within_each_row(comm):
     # this asserts, so the same test is meaningful on every CI leg.
     msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 2))
-    msh.topology.create_entity_permutations()
-    cell_info = msh.topology.get_cell_permutation_info()
+    cell_info = cell_permutation_info(msh.topology)
 
     data = np.arange(6, dtype=np.float64).reshape(2, 3)
     original_rows = [sorted(row) for row in data]
@@ -252,9 +225,6 @@ def test_interpolate_to_submesh_entity_maps_builds_expression(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 2, 2)
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
     u = dolfinx.fem.Function(V)
-    # Ruling F3: route through the package's own interpolation_points() helper
-    # rather than the raw `V.element.interpolation_points` attribute, which is
-    # a method (not a property) on the dolfinx v0.10.0 CI leg.
-    points = interpolation_points(V)
+    points = V.element.interpolation_points
     expr = interpolate_to_submesh_entity_maps(u, points)
     assert isinstance(expr, dolfinx.fem.Expression)

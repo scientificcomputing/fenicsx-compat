@@ -39,6 +39,29 @@ def unwrap_index_map(index_map) -> dolfinx.cpp.common.IndexMap:
     return index_map._cpp_object
 
 
+def index_to_dest_ranks(index_map, tag: int) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]]:
+    """The ranks sharing each local index of `index_map`, as `(ranks, offsets)`.
+
+    Ranks sharing local index `i` are `ranks[offsets[i]:offsets[i + 1]]`:
+    for an owned index, the ranks that ghost it; for a ghost, its owner
+    and the other ranks that ghost it. The calling rank is excluded.
+    Collective.
+
+    dolfinx 0.10 and 0.11 take an MPI `tag` for the consensus exchange
+    and return an `AdjacencyList`. dolfinx PR #4573 (post-0.11) dropped
+    the tag and returns a `(ranks, offsets)` tuple. `tag` is only used on
+    the older versions; pass a value no other exchange in flight uses.
+    Accepts either the Python wrapper or the cpp `IndexMap`. Dispatches on
+    the `TypeError` raised while binding the arguments, which happens on
+    every rank before any communication, so it cannot deadlock.
+    """
+    try:
+        dest = index_map.index_to_dest_ranks(tag)
+    except TypeError:
+        return index_map.index_to_dest_ranks()
+    return dest.array, dest.offsets
+
+
 def vector(index_map, bs: int, dtype: npt.DTypeLike = np.float64) -> dolfinx.la.Vector:
     """Create a distributed vector compatible with an index map and block size.
 

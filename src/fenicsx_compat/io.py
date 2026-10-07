@@ -6,18 +6,6 @@ def resolve_adios_scope(adios2):
     return scope
 
 
-def import_gmshio():
-    """Import dolfinx's gmsh-mesh-reading module.
-
-    Across its `dolfinx.io.gmshio` -> `dolfinx.io.gmsh` rename.
-    """
-    try:
-        from dolfinx.io import gmsh as gmshio
-    except ImportError:
-        from dolfinx.io import gmshio
-    return gmshio
-
-
 def pyvista_allow_snake_case(pyvista) -> None:
     """Allow snake_case VTK attribute access.
 

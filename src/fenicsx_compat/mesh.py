@@ -15,35 +15,19 @@ import ufl
 def cmap(mesh: dolfinx.mesh.Mesh) -> dolfinx.fem.CoordinateElement:
     """Get the coordinate element for a mesh's geometry.
 
-    Ported from scifem/io4dolfinx's `compat.cmap`, across three
-    generations of `mesh.geometry`'s cmap API: plural `cmaps[]`, callable
-    `cmap()`, and attribute `cmap`.
-
-    The exact release boundaries between these three generations are not
-    pinned: scifem and io4dolfinx both detect the shape via `hasattr` /
-    `callable` rather than a version check, and no version or PR number
-    for either transition is recorded in their git history or in this
-    project's design spec (§5.1).
+    dolfinx 0.10 has only the `geometry.cmap` property. From 0.11,
+    `geometry.cmaps` exists and `cmap` emits a deprecation warning, so
+    prefer `cmaps[0]` where it exists. Dispatches on `hasattr`.
     """
     if hasattr(mesh.geometry, "cmaps"):
         return mesh.geometry.cmaps[0]
-    if callable(mesh.geometry.cmap):
-        return mesh.geometry.cmap()
     return mesh.geometry.cmap
 
 
 def dofmap(mesh: dolfinx.mesh.Mesh) -> npt.NDArray[np.int32]:
-    """Get the geometry dofmap for a mesh, across the same generations as `cmap`.
-
-    As with `cmap`, the release boundaries between the `dofmaps[]` /
-    callable `dofmap()` / attribute `dofmap` generations are not pinned;
-    detection is by `hasattr` / `callable` on the installed API's shape,
-    not a version number.
-    """
+    """Get the geometry dofmap for a mesh, across the same `dofmaps` split as `cmap`."""
     if hasattr(mesh.geometry, "dofmaps"):
         return mesh.geometry.dofmaps[0]
-    if callable(mesh.geometry.dofmap):
-        return mesh.geometry.dofmap()
     return mesh.geometry.dofmap
 
 
@@ -73,34 +57,57 @@ def form_map(form: dolfinx.fem.Form) -> tuple[dolfinx.common.IndexMap, int]:
         )
 
 
-def num_entity_closure_dofs(dof_layout: dolfinx.cpp.fem.ElementDofLayout, dim: int) -> int:
-    """Get the number of dofs in the closure of a `dim`-dimensional entity.
+def cell_permutation_info(topology: dolfinx.mesh.Topology) -> npt.NDArray[np.uint32]:
+    """Compute and return the packed per-cell permutation info, ghost cells included.
 
-    Spans two generations of `ElementDofLayout`: older dolfinx exposes
-    only `entity_closure_dofs(dim, 0)`, newer dolfinx adds a direct
-    `num_entity_closure_dofs(dim)` method. The exact release boundary is
-    not pinned; this dispatches on `hasattr` rather than a version
-    number, because io4dolfinx (the source this was ported from) and
-    this project's design spec (§5.1) both detect the shape rather than
-    record when it changed.
+    dolfinx 0.10 and 0.11 compute it, together with the facet
+    permutations, in a single argument-free
+    `topology.create_entity_permutations()`. dolfinx PR #3904 (post-0.11)
+    split that into `create_cell_permutations()` and a per-dimension
+    `create_entity_permutations(dim)`. Dispatches on `hasattr`.
     """
-    if hasattr(dof_layout, "num_entity_closure_dofs"):
-        return dof_layout.num_entity_closure_dofs(dim)
-    return len(dof_layout.entity_closure_dofs(dim, 0))
+    if hasattr(topology, "create_cell_permutations"):
+        topology.create_cell_permutations()
+    else:
+        topology.create_entity_permutations()  # type: ignore[call-arg]
+    return topology.get_cell_permutation_info()
+
+
+def facet_permutations(topology: dolfinx.mesh.Topology) -> npt.NDArray[np.uint8]:
+    """Compute and return the permutation of every facet of every cell.
+
+    Shape `(num_cells, num_facets_per_cell)`, ghost cells included. Each
+    value encodes the facet's orientation as seen from the cell, as used
+    for FFCx's `quadrature_permutation`.
+
+    Across the same dolfinx PR #3904 split as `cell_permutation_info`:
+    0.10 and 0.11 expose these via `get_facet_permutations()` after an
+    argument-free `create_entity_permutations()`; from #3904 they are
+    `get_entity_permutations(tdim - 1)` after
+    `create_entity_permutations(tdim - 1)`. Both return a flat array.
+    """
+    fdim = topology.dim - 1
+    if hasattr(topology, "create_cell_permutations"):
+        topology.create_entity_permutations(fdim)
+        perms = topology.get_entity_permutations(fdim)
+    else:
+        topology.create_entity_permutations()  # type: ignore[call-arg]
+        perms = topology.get_facet_permutations()  # type: ignore[attr-defined]
+    num_facets_per_cell = dolfinx.cpp.mesh.cell_num_entities(topology.cell_type, fdim)
+    return np.asarray(perms).reshape(-1, num_facets_per_cell)
 
 
 def create_cell_partitioner(
     ghost_mode: dolfinx.mesh.GhostMode,
     max_facet_to_cell_links: int = 2,
 ) -> Callable:
-    """Build a cell partitioner with ghost mode baked in, across the
-    0.10/0.11 `create_cell_partitioner` API.
+    """Build a cell partitioner with ghost mode baked in, for dolfinx 0.10 and 0.11.
 
     Not needed (and not called) on dolfinx generations where
-    `create_cell_partitioner` was removed (post dolfinx PR #4403,
-    unreleased as of this package's design) — `create_mesh` takes
-    `ghost_mode` directly on those. Raises `NotImplementedError` if
-    called anyway, so a caller doesn't silently get an un-ghosted mesh.
+    `create_cell_partitioner` was removed (post dolfinx PR #4403) —
+    `create_mesh` takes `ghost_mode` directly on those. Raises
+    `NotImplementedError` if called anyway, so a caller doesn't silently
+    get an un-ghosted mesh.
     """
     if not hasattr(dolfinx.mesh, "create_cell_partitioner"):
         raise NotImplementedError(
@@ -108,10 +115,7 @@ def create_cell_partitioner(
             "(see dolfinx PR #4403); pass ghost_mode directly to "
             "fenicsx_compat.mesh.create_mesh() instead of calling create_cell_partitioner()."
         )
-    sig = inspect.signature(dolfinx.mesh.create_cell_partitioner)
-    if "max_facet_to_cell_links" in sig.parameters:
-        return dolfinx.mesh.create_cell_partitioner(ghost_mode, max_facet_to_cell_links)
-    return dolfinx.mesh.create_cell_partitioner(ghost_mode)
+    return dolfinx.mesh.create_cell_partitioner(ghost_mode, max_facet_to_cell_links)
 
 
 def create_mesh(
@@ -125,41 +129,35 @@ def create_mesh(
     max_facet_to_cell_links: int = 2,
     num_threads: int = 1,
 ) -> dolfinx.mesh.Mesh:
-    """Create a mesh from topology and geometry arrays, across three `create_mesh` generations.
+    """Create a mesh from topology and geometry arrays, with a given ghost mode.
 
-    See fenicsx-compat design spec §9 item 3 for the full generation
-    history. If `partitioner` is given explicitly, it is always used
-    as-is (never silently replaced) — `ghost_mode` is still threaded
-    through to it on dolfinx generations that support that.
+    Post dolfinx PR #4403 (post-0.11), `ghost_mode` and `num_threads` are
+    `create_mesh`'s own kwargs and `create_cell_partitioner` is gone. On
+    0.10 and 0.11 the ghost mode must be baked into the partitioner via
+    `create_cell_partitioner`; `num_threads` is ignored there. Dispatches
+    on `inspect.signature`.
 
-    Generation boundaries: the first-to-second-generation change (adding
-    the `max_facet_to_cell_links` kwarg) has no pinned release or PR
-    reference — both the design spec and io4dolfinx detect it via
-    `inspect.signature` rather than a version check. The second-to-third
-    boundary is pinned: `ghost_mode`/`num_threads` move onto
-    `create_mesh` itself, and `create_cell_partitioner` disappears, post
-    dolfinx PR #4403 (unreleased as of this package's design — see also
-    `create_cell_partitioner`'s docstring).
+    If `partitioner` is given explicitly it is always used as-is (never
+    silently replaced); `ghost_mode` is still passed to `create_mesh` on
+    generations that take it.
     """
-    sig = inspect.signature(dolfinx.mesh.create_mesh)
     kwargs: dict = {}
-    if "max_facet_to_cell_links" in sig.parameters:
-        kwargs["max_facet_to_cell_links"] = max_facet_to_cell_links
-
-    if "ghost_mode" in sig.parameters:
-        # Post-#4403: ghost_mode is create_mesh's own kwarg, threaded through
-        # to whichever partitioner is used, including the default.
-        kwargs["ghost_mode"] = ghost_mode
-        if "num_threads" in sig.parameters:
-            kwargs["num_threads"] = num_threads
+    if "ghost_mode" in inspect.signature(dolfinx.mesh.create_mesh).parameters:
+        kwargs = {"ghost_mode": ghost_mode, "num_threads": num_threads}
         if partitioner is None and comm.size > 1:
             partitioner = dolfinx.graph.partitioner()
-    else:
-        # 0.10 / 0.11: ghost mode must be baked into the partitioner itself.
-        if partitioner is None and comm.size > 1:
-            partitioner = create_cell_partitioner(ghost_mode, max_facet_to_cell_links)
+    elif partitioner is None and comm.size > 1:
+        partitioner = create_cell_partitioner(ghost_mode, max_facet_to_cell_links)
 
-    return dolfinx.mesh.create_mesh(comm, cells, e, x, partitioner=partitioner, **kwargs)
+    return dolfinx.mesh.create_mesh(
+        comm,
+        cells,
+        e,
+        x,
+        partitioner=partitioner,
+        max_facet_to_cell_links=max_facet_to_cell_links,
+        **kwargs,
+    )
 
 
 def reconstruct_mesh(mesh: dolfinx.mesh.Mesh, coordinate_element_degree: int) -> dolfinx.mesh.Mesh:

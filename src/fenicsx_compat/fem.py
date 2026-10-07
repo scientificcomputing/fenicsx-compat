@@ -9,25 +9,6 @@ import numpy.typing as npt
 from fenicsx_compat._dolfinx_version import at_least, before
 
 
-def interpolation_points(V: dolfinx.fem.FunctionSpace) -> npt.NDArray[np.floating]:
-    """Get the interpolation points for a function space, across the method-vs-property rename.
-
-    The exact release boundary is not pinned upstream: dolfinx-adjoint
-    (the source this was ported from) dispatches via `try/except
-    TypeError` rather than a version check. As an observed fact on this
-    install, dolfinx 0.12.0.dev0 exposes `element.interpolation_points`
-    as a property, not a callable method.
-    """
-    try:
-        # interpolation_points was a callable method pre-dolfinx-0.12; on
-        # this install it is a property (already an ndarray), so calling it
-        # is expected to raise TypeError and fall through to the except
-        # branch below.
-        return V.element.interpolation_points()  # type: ignore[operator]
-    except TypeError:
-        return V.element.interpolation_points
-
-
 def real_functionspace(
     mesh: dolfinx.mesh.Mesh, value_shape: tuple[int, ...] = ()
 ) -> dolfinx.fem.FunctionSpace:
@@ -97,45 +78,26 @@ def finite_element_ctor_kwargs(
     constructor,
     basix_element,
     *,
-    value_shape: tuple[int, ...],
-    block_size: int,
+    gdim: int,
+    value_shape: tuple[int, ...] | None,
     symmetric: bool = False,
 ):
-    """Construct a cpp FiniteElement, across the block_shape/block_size kwarg rename.
+    """Construct a single-element cpp FiniteElement, across the `gdim` addition.
 
-    The exact release boundary is not pinned; scifem (the source this
-    was ported from) and this project's design spec (§5.3) both
-    dispatch on the `TypeError` raised by the `block_shape` kwarg rather
-    than a version number.
+    dolfinx PR #4511 (post-0.11) added the mesh's geometric dimension as
+    a required constructor argument, needed for elements on manifolds.
+    0.10 and 0.11 take `(element, block_shape, symmetric)` only, and
+    `gdim` is ignored there. Dispatches on the `TypeError` nanobind
+    raises for the unmatched overload, before any work is done.
+
+    `constructor` is `dolfinx.cpp.fem.FiniteElement_float32` or
+    `_float64`; `value_shape` is passed as dolfinx's `block_shape`
+    (`None` for an unblocked element).
     """
     try:
+        return constructor(basix_element, gdim=gdim, block_shape=value_shape, symmetric=symmetric)
+    except TypeError:
         return constructor(basix_element, block_shape=value_shape, symmetric=symmetric)
-    except TypeError:
-        return constructor(basix_element, block_size=block_size, symmetric=symmetric)
-
-
-def function_space_ctor_kwargs(
-    constructor,
-    mesh_cpp,
-    cpp_element,
-    cpp_dofmap,
-    *,
-    value_shape: tuple[int, ...],
-):
-    """Construct a cpp FunctionSpace, across a `value_shape`-kwarg-existence split.
-
-    The exact release boundary is not pinned; this dispatches on the
-    `TypeError` raised by omitting `value_shape` rather than a version
-    number. This split tracks the `block_shape`/`block_size` rename in
-    `finite_element_ctor_kwargs` (both changes appear together in
-    scifem's FiniteElement/FunctionSpace construction), and neither
-    scifem nor this project's design spec (§5.3) records a version
-    reference for it.
-    """
-    try:
-        return constructor(mesh_cpp, cpp_element, cpp_dofmap)
-    except TypeError:
-        return constructor(mesh_cpp, cpp_element, cpp_dofmap, value_shape=value_shape)
 
 
 def interpolate(cpp_function, values: npt.NDArray, cells: npt.NDArray[np.int32]) -> None:
