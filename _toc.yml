@@ -1,0 +1,26 @@
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
+
+format: jb-book
+root: index
+parts:
+  - caption: Getting started
+    chapters:
+      - file: "docs/installation"
+      - file: "docs/choosing"
+
+  - caption: Function guide
+    chapters:
+      - file: "docs/guide/version"
+      - file: "docs/guide/mesh_creation"
+      - file: "docs/guide/mesh"
+      - file: "docs/guide/index_maps"
+      - file: "docs/guide/fem"
+      - file: "docs/guide/petsc"
+      - file: "docs/guide/ufl"
+      - file: "docs/guide/io"
+
+  - caption: Reference
+    chapters:
+      - file: "docs/native"
+      - file: "docs/api.rst"

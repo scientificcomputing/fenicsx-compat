@@ -34,13 +34,11 @@ def dofmap(mesh: dolfinx.mesh.Mesh) -> npt.NDArray[np.int32]:
 def form_map(form: dolfinx.fem.Form) -> tuple[dolfinx.common.IndexMap, int]:
     """Get the index map and block size for a linear form's test space.
 
-    `FunctionSpace.dofmaps` was a callable method in older dolfinx and is a
-    subscriptable sequence in newer dolfinx.
+    `FunctionSpace.dofmaps` is a method on dolfinx 0.10 and a sequence
+    from 0.11. Dispatches on the `TypeError` raised by calling it.
 
-    The exact release boundary is not pinned; this dispatches on the
-    `TypeError` raised by calling `dofmaps` rather than a version number,
-    because no version reference for this rename is recorded in scifem
-    (the source this was ported from) or in this project's design spec.
+    For a mesh with a single cell type, `form.function_spaces[0].dofmap`
+    gives the same on every version without this function.
     """
     try:
         # dofmaps() is a callable method pre-dolfinx-0.11; on this install
@@ -154,6 +152,9 @@ def create_mesh(
     If `partitioner` is given explicitly it is always used as-is (never
     silently replaced); `ghost_mode` is still passed to `create_mesh` on
     generations that take it.
+
+    The default `ghost_mode` is `shared_facet`, while dolfinx's own
+    default is `none` on every version.
     """
     kwargs: dict = {}
     if "ghost_mode" in inspect.signature(dolfinx.mesh.create_mesh).parameters:

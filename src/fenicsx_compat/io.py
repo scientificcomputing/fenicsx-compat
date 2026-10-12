@@ -48,6 +48,9 @@ def model_to_mesh(
     only takes effect through that partitioner. Dispatches on
     `inspect.signature`.
 
+    The default `ghost_mode` is `shared_facet`, as for `create_mesh`, while
+    dolfinx's own default is `none` on every version.
+
     If `partitioner` is given explicitly it is always used as-is. On 0.10
     and 0.11, `ghost_mode` (and on 0.10 `max_facet_to_cell_links`) then
     only apply if that partitioner was built with them.
