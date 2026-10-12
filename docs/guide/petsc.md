@@ -85,8 +85,8 @@ b = dolfinx.fem.petsc.assemble_vector(dolfinx.fem.form([L0, L1]), kind="mpi")
 fenicsx_compat.apply_lifting_and_set_bc(b, dolfinx.fem.form([[a00, a01], [a10, a11]]), bcs)
 ```
 
-```{warning}
-In fenicsx-compat 0.1.0, passing `x` together with a single form raises `AttributeError`. `x` works for blocked and nested systems.
+```{versionchanged} 0.2.0
+`x` works with a single form. In 0.1.0 that raises `AttributeError`; blocked and nested systems were not affected.
 ```
 
 (fn-zero-petsc-vector)=
