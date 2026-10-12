@@ -8,6 +8,14 @@ import pytest
 from fenicsx_compat.io import model_to_mesh, pyvista_allow_snake_case, resolve_adios_scope
 from fenicsx_compat.mesh import create_cell_partitioner
 
+# gmsh is optional: the model_to_mesh tests run where it is installed and skip elsewhere.
+try:
+    import gmsh
+except ImportError:
+    gmsh = None  # type: ignore[assignment]
+
+requires_gmsh = pytest.mark.skipif(gmsh is None, reason="gmsh is not installed")
+
 
 def test_resolve_adios_scope_returns_the_mpi_built_scope():
     adios2 = pytest.importorskip("adios2")
@@ -56,8 +64,6 @@ def test_pyvista_allow_snake_case_falls_back_to_old_style_attribute():
 @pytest.fixture
 def unit_square_model():
     """A meshed unit square in gmsh, the model built on rank 0 only."""
-    import gmsh
-
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 0)
     if MPI.COMM_WORLD.rank == 0:
@@ -73,6 +79,7 @@ def unit_square_model():
         gmsh.finalize()
 
 
+@requires_gmsh
 @pytest.mark.parametrize(
     "ghost_mode", [dolfinx.mesh.GhostMode.none, dolfinx.mesh.GhostMode.shared_facet]
 )
@@ -90,6 +97,7 @@ def test_model_to_mesh_applies_the_ghost_mode(comm, unit_square_model, ghost_mod
         assert num_ghosts > 0
 
 
+@requires_gmsh
 def test_model_to_mesh_respects_explicit_partitioner(comm, unit_square_model):
     calls = []
     # The partitioner dolfinx expects differs as in create_mesh: a cell partitioner on
