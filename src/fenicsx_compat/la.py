@@ -1,3 +1,5 @@
+from mpi4py import MPI
+
 import dolfinx.common
 import dolfinx.cpp.common
 import dolfinx.la
@@ -72,3 +74,63 @@ def vector(index_map, bs: int, dtype: npt.DTypeLike = np.float64) -> dolfinx.la.
     no such parameter.
     """
     return dolfinx.la.vector(index_map, bs, dtype=dtype)
+
+
+def create_sub_index_map(
+    index_map, indices: npt.NDArray[np.int32], *, allow_owner_change: bool = False
+) -> tuple[dolfinx.common.IndexMap, npt.NDArray[np.int32]]:
+    """Build an index map for a subset of the local indices of `index_map`.
+
+    Returns `(sub_map, sub_to_parent)`: the sub-map, and the local index in
+    `index_map` of each of its local indices. An index included by a rank
+    that ghosts it but not by its owner has to change owner; unless
+    `allow_owner_change`, that raises `RuntimeError`. Collective.
+
+    dolfinx 0.10 and 0.11 have this only as
+    `dolfinx.cpp.common.create_sub_index_map(map, indices,
+    allow_owner_change)`, which throws on the owning rank alone. dolfinx
+    PR #4479 (post-0.11) dropped the flag in favour of always allowing the
+    change and returning a rank-local flag saying whether one happened, and
+    #4496 added the Python `dolfinx.common.create_sub_index_map`. There the
+    flag is reduced here before raising, so every rank raises together.
+    Accepts either the Python wrapper or the cpp `IndexMap`; `sub_map` is
+    whichever type the installed dolfinx returns. Dispatches on `hasattr`.
+    """
+    if not hasattr(dolfinx.common, "create_sub_index_map"):
+        # The stubs describe the post-#4479 binding, which takes no flag and returns a
+        # third value; this branch only runs on the 0.10/0.11 binding.
+        return dolfinx.cpp.common.create_sub_index_map(  # type: ignore[call-arg, return-value]
+            unwrap_index_map(index_map), indices, allow_owner_change
+        )
+    if isinstance(index_map, dolfinx.cpp.common.IndexMap):
+        index_map = dolfinx.common.IndexMap(index_map)
+    sub_map, sub_to_parent, owners_changed = dolfinx.common.create_sub_index_map(index_map, indices)
+    if not allow_owner_change and index_map.comm.allreduce(owners_changed, op=MPI.LOR):
+        raise RuntimeError(
+            "Index owner change detected: an index is included by a rank that ghosts it but "
+            "not by its owner. Pass allow_owner_change=True to let it change owner."
+        )
+    return sub_map, sub_to_parent
+
+
+def local_range(index: int, N: int, size: int) -> tuple[int, int]:
+    """The half-open range of `[0, N)` held by block `index` of `size` almost-equal blocks.
+
+    The first `N % size` blocks hold one index more than the rest, the
+    split dolfinx itself uses to distribute indices over ranks. dolfinx
+    0.10 and 0.11 do not expose the free function
+    `dolfinx.common.local_range` to Python (only the `IndexMap` property of
+    the same name); it is reproduced here where it is missing. Dispatches
+    on `hasattr`.
+    """
+    if hasattr(dolfinx.common, "local_range"):
+        low, high = dolfinx.common.local_range(index, N, size)
+        return int(low), int(high)
+    return _local_range(index, N, size)
+
+
+def _local_range(index: int, N: int, size: int) -> tuple[int, int]:
+    """`dolfinx::common::local_range`, for dolfinx versions that do not expose it."""
+    per_block, remainder = divmod(N, size)
+    low = index * per_block + min(index, remainder)
+    return low, low + per_block + (1 if index < remainder else 0)

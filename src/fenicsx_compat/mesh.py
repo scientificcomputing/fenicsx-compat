@@ -57,6 +57,20 @@ def form_map(form: dolfinx.fem.Form) -> tuple[dolfinx.common.IndexMap, int]:
         )
 
 
+def meshtags_topology(tags: dolfinx.mesh.MeshTags) -> dolfinx.mesh.Topology:
+    """Get the topology a MeshTags is defined on, as the Python `dolfinx.mesh.Topology`.
+
+    dolfinx 0.10 and 0.11 return the cpp topology from `MeshTags.topology`;
+    dolfinx PR #4350 (post-0.11) returns the Python wrapper. The cpp object
+    is the wrapper's `_cpp_object` on every version. Dispatches on
+    `isinstance`.
+    """
+    topology = tags.topology
+    if isinstance(topology, dolfinx.cpp.mesh.Topology):
+        return dolfinx.mesh.Topology(topology)
+    return topology
+
+
 def cell_permutation_info(topology: dolfinx.mesh.Topology) -> npt.NDArray[np.uint32]:
     """Compute and return the packed per-cell permutation info, ghost cells included.
 

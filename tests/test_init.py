@@ -15,7 +15,10 @@ def test_all_public_functions_are_re_exported_at_top_level():
         "create_mesh",
         "reconstruct_mesh",
         "transfer_meshtags_to_submesh",
+        "meshtags_topology",
         "create_index_map",
+        "create_sub_index_map",
+        "local_range",
         "unwrap_index_map",
         "index_to_dest_ranks",
         "vector",
@@ -34,6 +37,7 @@ def test_all_public_functions_are_re_exported_at_top_level():
         "domain_of",
         "apply_pullback_inverse",
         "resolve_adios_scope",
+        "model_to_mesh",
         "pyvista_allow_snake_case",
     ]
     for name in expected:

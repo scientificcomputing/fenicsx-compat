@@ -6,7 +6,7 @@ import dolfinx.mesh
 import numpy as np
 import numpy.typing as npt
 
-from fenicsx_compat._dolfinx_version import at_least, before
+from ._dolfinx_version import at_least, before
 
 
 def real_functionspace(

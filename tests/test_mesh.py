@@ -20,6 +20,7 @@ from fenicsx_compat.mesh import (
     dofmap,
     facet_permutations,
     form_map,
+    meshtags_topology,
     reconstruct_mesh,
     transfer_meshtags_to_submesh,
 )
@@ -129,6 +130,18 @@ def test_create_cell_partitioner_matches_the_installed_dolfinx_api():
     else:
         with pytest.raises(NotImplementedError, match="removed"):
             create_cell_partitioner(dolfinx.mesh.GhostMode.shared_facet)
+
+
+def test_meshtags_topology_is_the_python_wrapper_of_the_mesh_topology(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
+    tdim = msh.topology.dim
+    num_cells = msh.topology.index_map(tdim).size_local
+    tags = dolfinx.mesh.meshtags(
+        msh, tdim, np.arange(num_cells, dtype=np.int32), np.ones(num_cells, dtype=np.int32)
+    )
+    topology = meshtags_topology(tags)
+    assert isinstance(topology, dolfinx.mesh.Topology)
+    assert topology._cpp_object is msh.topology._cpp_object
 
 
 def test_reconstruct_mesh_changes_coordinate_element_degree(comm):
