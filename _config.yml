@@ -1,0 +1,54 @@
+# Book settings
+# Learn more at https://jupyterbook.org/customize/config.html
+
+title: fenicsx-compat
+author: Henrik Finsberg and Jørgen Dokken
+copyright: "2026"
+only_build_toc_files: true
+
+
+execute:
+  execute_notebooks: "off"
+
+# Information about where the book exists on the web
+repository:
+  url: https://github.com/scientificcomputing/fenicsx-compat # Online location of your book
+  branch: main
+
+
+html:
+  use_issues_button: true
+  use_repository_button: true
+
+parse:
+  myst_enable_extensions:
+    - amsmath
+    - dollarmath
+    - linkify
+    - html_admonition
+
+
+sphinx:
+  extra_extensions:
+  - 'sphinx.ext.autodoc'
+  - 'sphinx.ext.napoleon'
+  - 'sphinx.ext.viewcode'
+  - 'sphinx.ext.intersphinx'
+
+  config:
+    html_last_updated_fmt: "%b %d, %Y"
+    # The docstrings mark code with single backticks, as in Markdown
+    default_role: literal
+    autodoc_member_order: bysource
+    intersphinx_mapping:
+      basix : ["https://docs.fenicsproject.org/basix/main/python/", null]
+      ffcx : ["https://docs.fenicsproject.org/ffcx/main/", null]
+      ufl : ["https://docs.fenicsproject.org/ufl/main/", null]
+      dolfinx : ["https://docs.fenicsproject.org/dolfinx/main/python", null]
+      petsc4py: ["https://petsc.org/release/petsc4py", null]
+      mpi4py: ["https://mpi4py.readthedocs.io/en/stable", null]
+      numpy: ["https://numpy.org/doc/stable/", null]
+
+
+
+exclude_patterns: [".pytest_cache/*", "tests", "docs/superpowers", ".superpowers", "handoff-*.md", "third-party", "dist", venv, .vcode, .ruff_cache, .github, .git]

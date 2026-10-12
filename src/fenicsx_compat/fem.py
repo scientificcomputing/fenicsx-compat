@@ -31,10 +31,10 @@ def real_functionspace(
     genuinely cannot distinguish the behaviour. Do not "fix" this back to
     an introspection-only check.
 
-    Separately, and unrelated to the above, `real_element` later gained a
-    `dtype` parameter; the exact release is not pinned upstream, so that
-    part *is* detected by `inspect.signature`, and `dtype=` is only
-    passed when the installed signature has that parameter.
+    Separately, and unrelated to the above, `real_element` gained a
+    `dtype` parameter in basix 0.11 (basix PR #1001). That part *is*
+    detected by `inspect.signature`, and `dtype=` is only passed when the
+    installed signature has that parameter.
 
     The `hasattr(basix.ufl, "real_element")` guard below covers a
     different failure mode: `basix` is a separate, independently
@@ -111,8 +111,10 @@ def interpolate(cpp_function, values: npt.NDArray, cells: npt.NDArray[np.int32])
 def expression_eval(expr, domain, entity: npt.NDArray[np.int32]) -> npt.NDArray:
     """Evaluate an Expression at integration entities.
 
-    Across dolfinx PR #4140, the entity-array shape for `Expression.eval`
-    changed from a flat 1D array to a 2D `[[cell, local_entity]]` array.
+    Facet entities are a 2D `[[cell, local_entity]]` array from dolfinx
+    PR #3625, which is in 0.10, so `expr.eval(domain, entity)` works the
+    same on every supported version. The retry with the entities
+    flattened is for the 1D shape of older dolfinx.
     """
     try:
         return expr.eval(domain, entity)
@@ -132,11 +134,14 @@ def permute_facet_quadrature(
 ) -> list[npt.NDArray[np.floating]]:
     """Build the per-permutation facet quadrature point table.
 
-    Before dolfinx PR #4140 (dolfinx<0.11.0.dev0), facet-quadrature-point
-    permutation was handled internally in dolfinx's C++ layer, so the
-    same points apply to every permutation. From 0.11.0.dev0, FFCx
-    expects the caller to precompute the permuted tables itself, via
-    `ffcx.ir.elementtables` (an internal, non-public FFCx module).
+    Entry `p` holds the points to use for a facet with permutation `p`, so
+    that an Expression evaluated on a facet is evaluated at `points` as
+    seen from the cell. Before dolfinx PR #4140 (dolfinx<0.11.0.dev0), facet
+    Expressions are not permuted at all, so every entry is `points`. From
+    0.11.0.dev0, dolfinx and FFCx (FFCx PR #836) map the points through the
+    facet's global orientation, so each entry is `points` with the inverse
+    of that permutation applied, computed with `ffcx.ir.elementtables` (an
+    internal, non-public FFCx module).
     """
     if before("0.11.0.dev0"):
         if facet_type not in _FACET_PERMUTATION_COUNTS:
@@ -205,7 +210,11 @@ def interpolate_to_submesh_entity_maps(
     points: npt.NDArray[np.floating],
     entity_maps=None,
 ) -> dolfinx.fem.Expression:
-    """Build an Expression, across the `entity_maps`-kwarg-existence split on `Expression`."""
+    """Build an Expression, across the `entity_maps`-kwarg-existence split on `Expression`.
+
+    `entity_maps` is passed from dolfinx PR #4140 (0.11) on. dolfinx 0.10
+    has no such argument, so there it is dropped.
+    """
     if "entity_maps" in inspect.signature(dolfinx.fem.Expression).parameters:
         return dolfinx.fem.Expression(volume_function, points, entity_maps=entity_maps)
     return dolfinx.fem.Expression(volume_function, points)

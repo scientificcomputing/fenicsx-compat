@@ -55,9 +55,10 @@ if dolfinx.has_petsc4py:
         r"""Apply lifting to a vector and set boundary conditions.
 
         Convenience function to apply lifting and set boundary conditions
-        for single, blocked, or nested forms. Modifies `b` such that::
-
-            b = [b_free - alpha * sum_i(a[i] @ (u_bc[i] - x[i])), u_bc[0], ..., u_bc[n]]
+        for single, blocked, or nested forms. Modifies `b` such that its free
+        rows become `b - alpha * A (g - x)` and its constrained rows
+        `alpha * (g - x)`, with `g` the boundary values and `A` the operator
+        of `a`.
 
         Args:
             b: The vector to apply lifting to.
@@ -133,12 +134,13 @@ def bcs_by_block(
 ) -> list[list[dolfinx.fem.DirichletBC]]:
     """Arrange boundary conditions by the space they constrain, across dolfinx 0.11/0.12.
 
-    `dolfinx.fem.bcs_by_block` cannot be called directly because 0.11 and
-    0.12 disagree about which side of the containment check is a Python
-    wrapper and which is a cpp object, in opposite directions (dolfinx PR
-    #4342). Normalizing both sides to cpp objects and calling the cpp
-    `contains` directly is stable across both and accepts either flavour
-    of space from the caller. (dolfinx PR #4312)
+    `dolfinx.fem.bcs_by_block` only works when the spaces and
+    `bc.function_space` are the same flavour: both cpp objects on 0.10
+    and 0.11, both Python wrappers from dolfinx PRs #4342 and #4350. That
+    holds for spaces from `dolfinx.fem.extract_function_spaces`, but not
+    for spaces the caller builds a list of. Normalizing both sides to cpp
+    objects and calling the cpp `contains` directly accepts either
+    flavour on every version.
     """
 
     def _cpp(space):

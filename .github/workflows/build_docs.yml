@@ -1,0 +1,39 @@
+name: Build documentation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  DEB_PYTHON_INSTALL_LAYOUT: deb_system
+
+jobs:
+  build:
+    name: Build on ${{ matrix.label }}
+    runs-on: ubuntu-24.04
+    # The API reference imports fenicsx_compat, which imports dolfinx
+    container: ghcr.io/fenics/dolfinx/dolfinx:${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        label: ["stable", "nightly"]
+    env:
+      PUBLISH_DIR: ./_build/html
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: python3 -m pip install ".[docs]"
+
+      - name: Build docs
+        run: jupyter book build --keep-going .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ env.PUBLISH_DIR }}
+          name: ${{ matrix.label }}-docs

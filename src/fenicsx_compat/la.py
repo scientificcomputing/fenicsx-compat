@@ -14,18 +14,19 @@ def create_index_map(
     owners: npt.NDArray[np.int32],
     tag: int = 0,
 ) -> dolfinx.common.IndexMap:
-    """Build an IndexMap, across dolfinx 0.11's class-constructor-to-factory-function rename.
+    """Build an IndexMap, across the class-constructor-to-factory-function rename.
 
-    dolfinx 0.11 replaced the `dolfinx.common.IndexMap` class constructor
-    with a `dolfinx.common.index_map` factory taking ghosts as a single
-    `(ghosts, owners)` tuple kwarg. The `tag` argument (used internally
+    dolfinx PR #4496 (post-0.11) replaced the `dolfinx.common.IndexMap`
+    class constructor with a `dolfinx.common.index_map` factory taking
+    ghosts as a single `(ghosts, owners)` tuple kwarg, and returning the
+    new Python `IndexMap` instead of the cpp one. The `tag` argument (used internally
     for MPI communication) is caller-specific — pass a value unique
     across index maps that may communicate concurrently.
     """
     if hasattr(dolfinx.common, "index_map"):
         return dolfinx.common.index_map(comm, num_local, ghosts=(ghosts, owners), tag=tag)
-    # dolfinx.common.IndexMap's constructor signature is the pre-0.11 shape
-    # (positional ghosts/owners, no tag kwarg on some installs); typeshed here
+    # dolfinx.common.IndexMap's constructor signature is the 0.10/0.11 shape
+    # (positional ghosts/owners, `tag` required); typeshed here
     # reflects the newer factory-function shape, so this branch is only
     # reached -- and only type-checked against the wrong signature -- on
     # dolfinx versions where it is in fact the right call.
@@ -50,8 +51,8 @@ def index_to_dest_ranks(index_map, tag: int) -> tuple[npt.NDArray[np.int32], npt
     Collective.
 
     dolfinx 0.10 and 0.11 take an MPI `tag` for the consensus exchange
-    and return an `AdjacencyList`. dolfinx PR #4573 (post-0.11) dropped
-    the tag and returns a `(ranks, offsets)` tuple. `tag` is only used on
+    and return an `AdjacencyList`. dolfinx PR #4354 (post-0.11) made it
+    return a `(ranks, offsets)` tuple, and #4573 dropped the tag. `tag` is only used on
     the older versions; pass a value no other exchange in flight uses.
     Accepts either the Python wrapper or the cpp `IndexMap`. Dispatches on
     the `TypeError` raised while binding the arguments, which happens on
@@ -67,11 +68,11 @@ def index_to_dest_ranks(index_map, tag: int) -> tuple[npt.NDArray[np.int32], npt
 def vector(index_map, bs: int, dtype: npt.DTypeLike = np.float64) -> dolfinx.la.Vector:
     """Create a distributed vector compatible with an index map and block size.
 
-    `dtype` must stay keyword — it became keyword-only from dolfinx 0.12.
-    Whether `index_map` should be the raw cpp object (0.11) or the Python
-    wrapper (0.12, dolfinx#4496) is handled internally by
-    `dolfinx.la.vector` itself. Never pass `scatterer` — dolfinx 0.11 has
-    no such parameter.
+    `dtype` must stay keyword — it became keyword-only from dolfinx 0.12
+    (dolfinx PR #4489). Pass `index_map` as dolfinx returns it: from
+    dolfinx PR #4496 `dolfinx.la.vector` needs the Python `IndexMap`, and a
+    cpp one raises `AttributeError`. Never pass `scatterer` — dolfinx 0.11
+    has no such parameter.
     """
     return dolfinx.la.vector(index_map, bs, dtype=dtype)
 
@@ -82,7 +83,8 @@ def create_sub_index_map(
     """Build an index map for a subset of the local indices of `index_map`.
 
     Returns `(sub_map, sub_to_parent)`: the sub-map, and the local index in
-    `index_map` of each of its local indices. An index included by a rank
+    `index_map` of each of its local indices. `indices` must be sorted and
+    unique, as dolfinx 0.10 and 0.11 require. An index included by a rank
     that ghosts it but not by its owner has to change owner; unless
     `allow_owner_change`, that raises `RuntimeError`. Collective.
 
