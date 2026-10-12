@@ -3,7 +3,7 @@ import inspect
 import dolfinx
 import dolfinx.mesh
 
-from fenicsx_compat.mesh import create_cell_partitioner
+from .mesh import create_cell_partitioner
 
 
 def resolve_adios_scope(adios2):
