@@ -16,7 +16,7 @@ authors = [
 dependencies = ["fenics-dolfinx>=0.10.0", "packaging"]
 
 [project.optional-dependencies]
-dev = ["ruff", "mypy", "pre-commit"]
+dev = ["ruff", "mypy", "pre-commit", "bump-my-version"]
 test = ["pytest", "petsc4py"]
 docs = ["jupyter-book<2.0"]
 all = ["fenicsx-compat[dev,test,docs]"]
