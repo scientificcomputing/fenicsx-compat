@@ -87,6 +87,7 @@ if dolfinx.has_petsc4py:
             bcs0 = bcs_by_block(dolfinx.fem.extract_function_spaces(a, 0), bcs)
             bcs1 = bcs_by_block(dolfinx.fem.extract_function_spaces(a, 1), bcs)
             a_lifting = a
+            x_lifting: PETSc.Vec | list[PETSc.Vec] | None = x
         else:
             # Single form: one block, so every bc applies to it. `set_bc`
             # (below) accepts `bcs` in its bare/flat shape directly, but
@@ -95,16 +96,14 @@ if dolfinx.has_petsc4py:
             # vector -- confirmed: a bare `a` raises `TypeError: 'Form'
             # object is not iterable`, and a flat `bcs` raises `TypeError:
             # 'DirichletBC' object is not iterable` inside apply_lifting.
+            # The same goes for `x`, which apply_lifting iterates over: a
+            # bare Vec raises `AttributeError` there, on every version.
             bcs0 = bcs
             bcs1 = [bcs]
             a_lifting = [a]
+            x_lifting = None if x is None else [x]
 
-        # x may be a single Vec (non-blocked form); apply_lifting's stub types
-        # x0 as Sequence[Vec] | None across all call shapes, so a bare Vec
-        # here is a real, version-independent stub-vs-runtime looseness, not
-        # a cross-version seam -- but the runtime accepts it (dolfinx handles
-        # both shapes internally), so this is left as documented behaviour.
-        dolfinx.fem.petsc.apply_lifting(b, a_lifting, bcs=bcs1, x0=x, alpha=alpha)  # type: ignore[arg-type]
+        dolfinx.fem.petsc.apply_lifting(b, a_lifting, bcs=bcs1, x0=x_lifting, alpha=alpha)  # type: ignore[arg-type]
         ghost_update(b, PETSc.InsertMode.ADD_VALUES, PETSc.ScatterMode.REVERSE)
         set_bc(b, bcs0, x0=x, alpha=alpha)
         ghost_update(b, PETSc.InsertMode.INSERT_VALUES, PETSc.ScatterMode.FORWARD)

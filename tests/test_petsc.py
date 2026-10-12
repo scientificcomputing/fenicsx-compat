@@ -172,3 +172,40 @@ def test_apply_lifting_and_set_bc_runs_on_a_single_form(comm):
     owned_dofs = dofs[dofs < b.getLocalSize()]
     assert np.allclose(b.array[owned_dofs], 9.0)
     b.destroy()
+
+
+def test_apply_lifting_and_set_bc_subtracts_x_for_a_single_form(comm):
+    # Regression: with a single form, `x` reached `apply_lifting` as a bare Vec,
+    # which it iterates over, so the call raised AttributeError on every version.
+    msh = dolfinx.mesh.create_unit_square(comm, 3, 3)
+    V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
+    u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
+    a = dolfinx.fem.form(ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx)
+    L = dolfinx.fem.form(v * ufl.dx)
+
+    tdim = msh.topology.dim
+    msh.topology.create_connectivity(tdim - 1, tdim)
+    facets = dolfinx.mesh.exterior_facet_indices(msh.topology)
+    dofs = dolfinx.fem.locate_dofs_topological(V, tdim - 1, facets)
+    bc = dolfinx.fem.dirichletbc(9.0, dofs, V)
+    # A non-constant `x` and alpha != 1, so that both visibly change the result
+    x = dolfinx.fem.Function(V)
+    x.interpolate(lambda p: 1.0 + p[0])
+    alpha = 2.0
+
+    b = dolfinx.fem.petsc.assemble_vector(L)
+    apply_lifting_and_set_bc(b, a, [bc], x=x.x.petsc_vec, alpha=alpha)
+
+    # Constrained rows are alpha * (g - x)
+    owned_dofs = dofs[dofs < b.getLocalSize()]
+    assert np.allclose(b.array[owned_dofs], alpha * (9.0 - x.x.array[owned_dofs]))
+
+    # Every row matches the same steps done natively
+    expected = dolfinx.fem.petsc.assemble_vector(L)
+    dolfinx.fem.petsc.apply_lifting(expected, [a], bcs=[[bc]], x0=[x.x.petsc_vec], alpha=alpha)
+    expected.ghostUpdate(addv=PETSc.InsertMode.ADD_VALUES, mode=PETSc.ScatterMode.REVERSE)
+    dolfinx.fem.petsc.set_bc(expected, [bc], x0=x.x.petsc_vec, alpha=alpha)
+    expected.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+    assert np.allclose(b.array, expected.array)
+    b.destroy()
+    expected.destroy()
