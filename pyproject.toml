@@ -17,7 +17,7 @@ dependencies = ["fenics-dolfinx>=0.10.0", "packaging"]
 
 [project.optional-dependencies]
 dev = ["ruff", "mypy", "pre-commit"]
-test = ["pytest", "petsc4py"]
+test = ["pytest", "petsc4py", "gmsh"]
 all = ["fenicsx-compat[dev,test]"]
 
 [tool.pytest.ini_options]
