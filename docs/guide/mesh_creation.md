@@ -1,9 +1,9 @@
 # Creating meshes
 
-Since DOLFINx PR #4403 (after 0.11), the ghost mode is an argument of `create_mesh` and `model_to_mesh`. In 0.10 and 0.11 it has to be built into the cell partitioner instead. The functions on this page take `ghost_mode` on every version and put it where the installed DOLFINx expects it.
+Since DOLFINx PR #4403 (after 0.11), the ghost mode is an argument of {py:func}`create_mesh<dolfinx.mesh.create_mesh>` and {py:func}`model_to_mesh<dolfinx.io.gmsh.model_to_mesh>`. In 0.10 and 0.11 it has to be built into the cell partitioner instead. The functions on this page take `ghost_mode` on every version and put it where the installed DOLFINx expects it.
 
 ```{important}
-`fenicsx_compat.create_mesh` and `fenicsx_compat.model_to_mesh` default to `GhostMode.shared_facet`, while DOLFINx defaults to `GhostMode.none` on every version. Pass `ghost_mode` explicitly if you rely on either.
+{py:func}`fenicsx_compat.create_mesh<fenicsx_compat.mesh.create_mesh>` and {py:func}`fenicsx_compat.model_to_mesh<fenicsx_compat.io.model_to_mesh>` default to {py:attr}`GhostMode.shared_facet<dolfinx.mesh.GhostMode.shared_facet>`, while DOLFINx defaults to {py:attr}`GhostMode.none<dolfinx.mesh.GhostMode.none>` on every version. Pass `ghost_mode` explicitly if you rely on either.
 ```
 
 (fn-create-mesh)=
@@ -19,8 +19,8 @@ Creates a distributed mesh from cell and node arrays with the given ghost mode.
 
 | DOLFINx | Native |
 |---|---|
-| 0.10, 0.11 | `dolfinx.mesh.create_mesh(comm, cells, e, x, partitioner=dolfinx.mesh.create_cell_partitioner(ghost_mode, max_facet_to_cell_links))` |
-| main | `dolfinx.mesh.create_mesh(comm, cells, e, x, ghost_mode=ghost_mode, max_facet_to_cell_links=..., num_threads=...)` |
+| 0.10, 0.11 | [`dolfinx.mesh.create_mesh(comm, cells, e, x, partitioner=dolfinx.mesh.create_cell_partitioner(ghost_mode, max_facet_to_cell_links))`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.mesh.html#dolfinx.mesh.create_mesh) |
+| main | {py:func}`dolfinx.mesh.create_mesh(comm, cells, e, x, ghost_mode=ghost_mode, max_facet_to_cell_links=..., num_threads=...)<dolfinx.mesh.create_mesh>` |
 
 ```python
 from mpi4py import MPI
@@ -58,14 +58,16 @@ Builds a cell partitioner with the ghost mode built in, for 0.10 and 0.11. Raise
 | DOLFINx | Native |
 |---|---|
 | 0.10 | `dolfinx.mesh.create_cell_partitioner(ghost_mode, max_facet_to_cell_links=2)` |
-| 0.11 | `dolfinx.mesh.create_cell_partitioner(ghost_mode, max_facet_to_cell_links)`, with no default for the second argument |
-| main | Removed. Pass `ghost_mode` to `create_mesh` or `model_to_mesh`. |
+| 0.11 | [`dolfinx.mesh.create_cell_partitioner(ghost_mode, max_facet_to_cell_links)`](https://docs.fenicsproject.org/dolfinx/v0.11.0.post0/python/generated/dolfinx.mesh.html#dolfinx.mesh.create_cell_partitioner), with no default for the second argument |
+| main | Removed. Pass `ghost_mode` to {py:func}`create_mesh<dolfinx.mesh.create_mesh>` or {py:func}`model_to_mesh<dolfinx.io.gmsh.model_to_mesh>`. |
 
 Prefer [`create_mesh`](fn-create-mesh) or [`model_to_mesh`](fn-model-to-mesh) with `ghost_mode`. Use this only for an API that accepts a partitioner but no ghost mode:
 
 ```python
 try:  # DOLFINx 0.10 and 0.11
-    kwargs = {"partitioner": fenicsx_compat.create_cell_partitioner(dolfinx.mesh.GhostMode.shared_facet)}
+    kwargs = {
+        "partitioner": fenicsx_compat.create_cell_partitioner(dolfinx.mesh.GhostMode.shared_facet)
+    }
 except NotImplementedError:  # main
     kwargs = {"ghost_mode": dolfinx.mesh.GhostMode.shared_facet}
 ```
@@ -84,13 +86,13 @@ fenicsx_compat.model_to_mesh(model, comm, rank, gdim=3, *, partitioner=None,
                              max_facet_to_cell_links=2, dtype=default_real_type)
 ```
 
-Creates a mesh from a gmsh model with the given ghost mode, and returns the `dolfinx.io.gmsh.MeshData` that DOLFINx builds, so the mesh is `.mesh`.
+Creates a mesh from a gmsh model with the given ghost mode, and returns the {py:class}`dolfinx.io.gmsh.MeshData` that DOLFINx builds, so the mesh is {py:attr}`.mesh<dolfinx.io.gmsh.MeshData.mesh>`.
 
 | DOLFINx | Native |
 |---|---|
-| 0.10 | `dolfinx.io.gmsh.model_to_mesh(model, comm, rank, gdim, partitioner=create_cell_partitioner(ghost_mode, max_facet_to_cell_links))`; no `max_facet_to_cell_links` argument |
-| 0.11 | as 0.10, and `max_facet_to_cell_links` is also an argument of `model_to_mesh` |
-| main | `dolfinx.io.gmsh.model_to_mesh(model, comm, rank, gdim, ghost_mode=..., max_facet_to_cell_links=...)` |
+| 0.10 | [`dolfinx.io.gmsh.model_to_mesh(model, comm, rank, gdim, partitioner=create_cell_partitioner(ghost_mode, max_facet_to_cell_links))`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.io.gmsh.html#dolfinx.io.gmsh.model_to_mesh); no `max_facet_to_cell_links` argument |
+| 0.11 | as 0.10, and `max_facet_to_cell_links` is also an argument of [`model_to_mesh`](https://docs.fenicsproject.org/dolfinx/v0.11.0.post0/python/generated/dolfinx.io.gmsh.html#dolfinx.io.gmsh.model_to_mesh) |
+| main | {py:func}`dolfinx.io.gmsh.model_to_mesh(model, comm, rank, gdim, ghost_mode=..., max_facet_to_cell_links=...)<dolfinx.io.gmsh.model_to_mesh>` |
 
 ```python
 import gmsh
@@ -108,7 +110,7 @@ gmsh.finalize()
 mesh = mesh_data.mesh
 ```
 
-As for `create_mesh`, an explicit `partitioner` is used as given, and on 0.10 and 0.11 the ghost mode then only applies if it was built into it. On 0.10, `max_facet_to_cell_links` only reaches the mesh through the partitioner built here, so it has no effect in serial.
+As for {py:func}`create_mesh<fenicsx_compat.mesh.create_mesh>`, an explicit `partitioner` is used as given, and on 0.10 and 0.11 the ghost mode then only applies if it was built into it. On 0.10, `max_facet_to_cell_links` only reaches the mesh through the partitioner built here, so it has no effect in serial.
 
 (fn-reconstruct-mesh)=
 ## `reconstruct_mesh`
@@ -122,7 +124,7 @@ Returns a copy of `mesh` whose geometry uses a coordinate element of another deg
 | DOLFINx | Native |
 |---|---|
 | 0.10 | No equivalent. The geometry is rebuilt by hand here. |
-| 0.11, main | `dolfinx.fem.interpolate_geometry(mesh, dolfinx.fem.coordinate_element(mesh.topology.cell_type, degree, variant=mesh.geometry.cmaps[0].variant, dtype=mesh.geometry.x.dtype))` |
+| 0.11, main | {py:func}`dolfinx.fem.interpolate_geometry(mesh, dolfinx.fem.coordinate_element(mesh.topology.cell_type, degree, variant=mesh.geometry.cmaps[0].variant, dtype=mesh.geometry.x.dtype))<dolfinx.fem.interpolate_geometry>` |
 
 ```python
 mesh = dolfinx.mesh.create_unit_square(MPI.COMM_WORLD, 4, 4)

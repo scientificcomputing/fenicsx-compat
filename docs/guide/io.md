@@ -9,7 +9,7 @@ These two functions depend on the version of ADIOS2 and PyVista, not on DOLFINx.
 fenicsx_compat.resolve_adios_scope(adios2) -> module
 ```
 
-Returns the namespace that holds ADIOS2's low-level Python bindings (`ADIOS`, `Mode`, ...). Raises `ImportError` if ADIOS2 was built without MPI.
+Returns the namespace that holds ADIOS2's low-level Python bindings ({py:class}`ADIOS<adios2.bindings.ADIOS>`, `Mode`, ...). Raises `ImportError` if ADIOS2 was built without MPI.
 
 | ADIOS2 | Low-level bindings |
 |---|---|
@@ -42,4 +42,4 @@ pyvista = fenicsx_compat.require_module("pyvista")
 fenicsx_compat.pyvista_allow_snake_case(pyvista)
 ```
 
-PyVista 0.45 and newer also have a public call that does the same on every version, `pyvista.vtk_snake_case("allow")`. PyVista 0.44 and older have no such guard, and this function raises `AttributeError` there.
+PyVista 0.45 and newer also have a public call that does the same on every version, {py:data}`pyvista.vtk_snake_case("allow")<pyvista.vtk_snake_case>`. PyVista 0.44 and older have no such guard, and this function raises `AttributeError` there.

@@ -18,7 +18,7 @@ Whether the installed DOLFINx is at least `version`, compared as `packaging` ver
 fenicsx_compat.before(version: str) -> bool
 ```
 
-Whether the installed DOLFINx is strictly older than `version`. Always the opposite of `at_least`.
+Whether the installed DOLFINx is strictly older than `version`. Always the opposite of {py:func}`at_least<fenicsx_compat._dolfinx_version.at_least>`.
 
 ```python
 if fenicsx_compat.before("0.11.0.dev0"):
@@ -27,7 +27,7 @@ if fenicsx_compat.before("0.11.0.dev0"):
 
 Development builds sort before their release: `0.11.0.dev0 < 0.11.0`. To include the nightly builds that led up to a release, compare against `X.Y.0.dev0`, not `X.Y.0`.
 
-Use a version check only when the behaviour changed but the API did not, so there is nothing to detect. For example, `basix.ufl.real_element` exists on 0.10, but a function space cannot be built from it until 0.11; see [`real_functionspace`](fn-real-functionspace).
+Use a version check only when the behaviour changed but the API did not, so there is nothing to detect. For example, {py:func}`basix.ufl.real_element` exists on 0.10, but a function space cannot be built from it until 0.11; see [`real_functionspace`](fn-real-functionspace).
 
 (fn-require-module)=
 ## `require_module`

@@ -1,6 +1,6 @@
 # Index maps and vectors
 
-DOLFINx PR #4496 (after 0.11) wrapped `IndexMap` in a Python class. On 0.10 and 0.11, `dolfinx.common.IndexMap` is the C++ class itself; on main it is a Python wrapper around it. Most functions on this page exist because of that change.
+DOLFINx PR #4496 (after 0.11) wrapped {py:class}`IndexMap<dolfinx.cpp.common.IndexMap>` in a Python class. On 0.10 and 0.11, {py:class}`dolfinx.common.IndexMap` is the C++ class itself; on main it is a Python wrapper around it. Most functions on this page exist because of that change.
 
 (fn-create-index-map)=
 ## `create_index_map`
@@ -13,8 +13,8 @@ Creates an index map with `num_local` owned indices, and ghosts given by their g
 
 | DOLFINx | Native | Returns |
 |---|---|---|
-| 0.10, 0.11 | `dolfinx.common.IndexMap(comm, num_local, ghosts, owners, tag)` | the C++ `IndexMap` |
-| main | `dolfinx.common.index_map(comm, num_local, (ghosts, owners), tag=tag)` | the Python `IndexMap` |
+| 0.10, 0.11 | [`dolfinx.common.IndexMap(comm, num_local, ghosts, owners, tag)`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.common.html#dolfinx.common.IndexMap) | the C++ {py:class}`IndexMap<dolfinx.cpp.common.IndexMap>` |
+| main | {py:func}`dolfinx.common.index_map(comm, num_local, (ghosts, owners), tag=tag)<dolfinx.common.index_map>` | the Python {py:class}`IndexMap<dolfinx.common.IndexMap>` |
 
 ```python
 comm = MPI.COMM_WORLD
@@ -63,7 +63,7 @@ Creates an index map for a subset of the local indices of `index_map`. `sub_to_p
 | DOLFINx | Native | Owner change |
 |---|---|---|
 | 0.10, 0.11 | `dolfinx.cpp.common.create_sub_index_map(cpp_map, indices, allow_owner_change)` returns `(sub_map, sub_to_parent)` | raises `RuntimeError`, only on the owning ranks, if not allowed |
-| main (DOLFINx PRs #4479, #4496) | `dolfinx.common.create_sub_index_map(index_map, indices)` returns `(sub_map, sub_to_parent, owners_changed)` | always allowed. `owners_changed` is local to each rank. |
+| main (DOLFINx PRs #4479, #4496) | {py:func}`dolfinx.common.create_sub_index_map(index_map, indices)<dolfinx.common.create_sub_index_map>` returns `(sub_map, sub_to_parent, owners_changed)` | always allowed. `owners_changed` is local to each rank. |
 
 ```python
 vertex_map = mesh.topology.index_map(0)
@@ -72,7 +72,7 @@ sub_map, sub_to_parent = fenicsx_compat.create_sub_index_map(vertex_map, keep)
 ```
 
 - `indices` must be sorted and unique: 0.10 and 0.11 require it.
-- `sub_map` is the C++ map on 0.10 and 0.11 and the Python one on main, like `create_index_map`.
+- `sub_map` is the C++ map on 0.10 and 0.11 and the Python one on main, like {py:func}`create_index_map<fenicsx_compat.la.create_index_map>`.
 - On main the owner-change error is raised on every rank together. On 0.10 and 0.11 it comes from DOLFINx, on the owning ranks only, and the other ranks carry on into their next collective call and hang. If an owner change is possible, choose `indices` so that it cannot happen, or pass `allow_owner_change=True`.
 
 (fn-index-to-dest-ranks)=
@@ -86,8 +86,8 @@ For each local index, the other ranks that hold it: for an owned index, the rank
 
 | DOLFINx | Native |
 |---|---|
-| 0.10, 0.11 | `index_map.index_to_dest_ranks(tag)` returns an `AdjacencyList`; use `.array` and `.offsets` |
-| main (DOLFINx PRs #4354, #4573) | `index_map.index_to_dest_ranks()` returns `(ranks, offsets)` |
+| 0.10, 0.11 | [`index_map.index_to_dest_ranks(tag)`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.common.html#dolfinx.common.IndexMap.index_to_dest_ranks) returns an [`AdjacencyList`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.cpp.graph.html#dolfinx.cpp.graph.AdjacencyList_int32); use [`.array`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.cpp.graph.html#dolfinx.cpp.graph.AdjacencyList_int32.array) and [`.offsets`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.cpp.graph.html#dolfinx.cpp.graph.AdjacencyList_int32.offsets) |
+| main (DOLFINx PRs #4354, #4573) | {py:meth}`index_map.index_to_dest_ranks()<dolfinx.common.IndexMap.index_to_dest_ranks>` returns `(ranks, offsets)` |
 
 ```python
 ranks, offsets = fenicsx_compat.index_to_dest_ranks(mesh.topology.index_map(0), tag=102)
@@ -109,7 +109,7 @@ The half-open range of `[0, N)` held by block `index` when `[0, N)` is split int
 
 | DOLFINx | Native |
 |---|---|
-| 0.10, 0.11 | Not available in Python. (`IndexMap.local_range` is a different thing: the owned range of that map.) |
+| 0.10, 0.11 | Not available in Python. ([`IndexMap.local_range`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.common.html#dolfinx.common.IndexMap.local_range) is a different thing: the owned range of that map.) |
 | main | `dolfinx.common.local_range(index, N, size)` |
 
 ```python
@@ -127,11 +127,11 @@ Creates a distributed vector over an index map with block size `bs`.
 
 | DOLFINx | Native |
 |---|---|
-| 0.10, 0.11 | `dolfinx.la.vector(index_map, bs, dtype)` |
-| main (DOLFINx PRs #4489, #4496) | `dolfinx.la.vector(index_map, bs, scatterer=None, *, dtype=...)`. `dtype` must be a keyword, and `index_map` must be the Python one. |
+| 0.10, 0.11 | [`dolfinx.la.vector(index_map, bs, dtype)`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.la.html#dolfinx.la.vector) |
+| main (DOLFINx PRs #4489, #4496) | {py:func}`dolfinx.la.vector(index_map, bs, scatterer=None, *, dtype=...)<dolfinx.la.vector>`. `dtype` must be a keyword, and `index_map` must be the Python one. |
 
 ```python
 x = fenicsx_compat.vector(V.dofmap.index_map, V.dofmap.index_map_bs, dtype=np.float64)
 ```
 
-Pass the index map as DOLFINx or `create_index_map` returns it; on main the C++ one raises `AttributeError`. A native call with `dtype=` as a keyword works on every version too.
+Pass the index map as DOLFINx or {py:func}`create_index_map<fenicsx_compat.la.create_index_map>` returns it; on main the C++ one raises `AttributeError`. A native call with `dtype=` as a keyword works on every version too.

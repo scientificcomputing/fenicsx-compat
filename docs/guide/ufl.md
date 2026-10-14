@@ -33,7 +33,7 @@ Maps an expression on the physical cell to the reference cell, by inverting the 
 | DOLFINx (UFL) | Native |
 |---|---|
 | 0.10 (2025.2), 0.11 (2026.1) | None. Closed forms are used here for the identity (`u`), contravariant Piola (`det(J) K u`) and covariant Piola (`J^T u`) pull backs. Other pull backs raise `NotImplementedError`. |
-| main (2026.2, UFL PR #511) | `pullback.apply_inverse(expr, domain)` |
+| main (2026.2, UFL PR #511) | {py:meth}`pullback.apply_inverse(expr, domain)<ufl.AbstractPullback.apply_inverse>` |
 
 ```python
 v = ufl.TestFunction(V)
