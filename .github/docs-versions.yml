@@ -1,0 +1,18 @@
+# .github/docs-versions.yml
+#
+# Maps each fenicsx-compat minor version series to:
+#   - the fenicsx-compat git tag to build docs from (latest patch of that minor)
+#   - the dolfinx Docker image to build them in
+#
+# "main" is always built against dolfinx nightly and is not listed here;
+# it is handled automatically by .github/workflows/deploy_docs.yml.
+#
+# When releasing a new minor version (e.g. v0.3.0):
+#   1. Add a new entry at the top with the new tag and a dolfinx image.
+#   2. Update the tag here whenever a new patch supersedes the previous one.
+#      (Old patch docs are intentionally replaced — only one slot per minor.)
+
+versions:
+  - tag: "v0.2.0"
+    minor: "v0.2"
+    dolfinx_image: "ghcr.io/fenics/dolfinx/dolfinx:v0.11.0"
