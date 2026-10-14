@@ -21,6 +21,10 @@ test = ["pytest", "petsc4py"]
 docs = ["jupyter-book<2.0"]
 all = ["fenicsx-compat[dev,test,docs]"]
 
+[dependency-groups]
+# Keep in sync with [build-system].requires above.
+build = ["hatchling"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--import-mode=importlib", "--strict-markers"]
