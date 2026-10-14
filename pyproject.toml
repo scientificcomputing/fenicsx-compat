@@ -25,6 +25,11 @@ all = ["fenicsx-compat[dev,test,docs]"]
 # Keep in sync with [build-system].requires above.
 build = ["hatchling"]
 
+[tool.hatch.build]
+# Editable installs add src/ to sys.path with a .pth file, so they do not
+# need the editables package when building without build isolation.
+dev-mode-dirs = ["src"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--import-mode=importlib", "--strict-markers"]
