@@ -48,6 +48,9 @@ sphinx:
       petsc4py: ["https://petsc.org/release/petsc4py", null]
       mpi4py: ["https://mpi4py.readthedocs.io/en/stable", null]
       numpy: ["https://numpy.org/doc/stable/", null]
+      scifem: ["https://scientificcomputing.github.io/scifem/", null]
+      pyvista: ["https://docs.pyvista.org/", null]
+      adios2: ["https://adios2.readthedocs.io/en/latest/", null]
 
 
 

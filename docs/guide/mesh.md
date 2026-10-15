@@ -11,8 +11,8 @@ The coordinate element of the mesh geometry.
 
 | DOLFINx | Native |
 |---|---|
-| 0.10 | `mesh.geometry.cmap` |
-| 0.11, main | `mesh.geometry.cmaps[0]`. `mesh.geometry.cmap` still works but emits a `DeprecationWarning`. |
+| 0.10 | [`mesh.geometry.cmap`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.mesh.html#dolfinx.mesh.Geometry.cmap) |
+| 0.11, main | {py:attr}`mesh.geometry.cmaps[0]<dolfinx.mesh.Geometry.cmaps>`. {py:attr}`mesh.geometry.cmap<dolfinx.mesh.Geometry.cmap>` still works but emits a `DeprecationWarning`. |
 
 ```python
 cell = 0
@@ -31,8 +31,8 @@ The geometry dofmap: the node indices of each cell, shape `(num_cells, num_nodes
 
 | DOLFINx | Native |
 |---|---|
-| 0.10 | `mesh.geometry.dofmap` |
-| 0.11, main | `mesh.geometry.dofmaps[0]`. `mesh.geometry.dofmap` still works but emits a `DeprecationWarning`. |
+| 0.10 | [`mesh.geometry.dofmap`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.mesh.html#dolfinx.mesh.Geometry.dofmap) |
+| 0.11, main | {py:attr}`mesh.geometry.dofmaps[0]<dolfinx.mesh.Geometry.dofmaps>`. {py:attr}`mesh.geometry.dofmap<dolfinx.mesh.Geometry.dofmap>` still works but emits a `DeprecationWarning`. |
 
 ```python
 cell_nodes = mesh.geometry.x[fenicsx_compat.dofmap(mesh)]  # (num_cells, num_nodes_per_cell, 3)
@@ -48,12 +48,12 @@ cell_nodes = mesh.geometry.x[fenicsx_compat.dofmap(mesh)]  # (num_cells, num_nod
 fenicsx_compat.meshtags_topology(tags) -> dolfinx.mesh.Topology
 ```
 
-The topology a `MeshTags` is defined on, always as the Python `dolfinx.mesh.Topology`.
+The topology a {py:class}`MeshTags<dolfinx.mesh.MeshTags>` is defined on, always as the Python {py:class}`dolfinx.mesh.Topology`.
 
-| DOLFINx | `tags.topology` returns | Native Python topology |
+| DOLFINx | {py:attr}`tags.topology<dolfinx.mesh.MeshTags.topology>` returns | Native Python topology |
 |---|---|---|
-| 0.10, 0.11 | the C++ topology | `dolfinx.mesh.Topology(tags.topology)` |
-| main (DOLFINx PR #4350) | the Python topology | `tags.topology` |
+| 0.10, 0.11 | the C++ topology | [`dolfinx.mesh.Topology(tags.topology)`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.mesh.html#dolfinx.mesh.Topology) |
+| main (DOLFINx PR #4350) | the Python topology | {py:attr}`tags.topology<dolfinx.mesh.MeshTags.topology>` |
 
 ```python
 topology = fenicsx_compat.meshtags_topology(facet_tags)
@@ -71,8 +71,8 @@ Computes and returns the packed per-cell permutation info, ghost cells included,
 
 | DOLFINx | Native |
 |---|---|
-| 0.10, 0.11 | `topology.create_entity_permutations()`, then `topology.get_cell_permutation_info()` |
-| main (DOLFINx PR #3904) | `topology.create_cell_permutations()`, then `topology.get_cell_permutation_info()`. `create_entity_permutations` now takes a dimension. |
+| 0.10, 0.11 | [`topology.create_entity_permutations()`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.mesh.html#dolfinx.mesh.Topology.create_entity_permutations), then [`topology.get_cell_permutation_info()`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.mesh.html#dolfinx.mesh.Topology.get_cell_permutation_info) |
+| main (DOLFINx PR #3904) | {py:meth}`topology.create_cell_permutations()<dolfinx.mesh.Topology.create_cell_permutations>`, then {py:meth}`topology.get_cell_permutation_info()<dolfinx.mesh.Topology.get_cell_permutation_info>`. {py:meth}`create_entity_permutations<dolfinx.mesh.Topology.create_entity_permutations>` now takes a dimension. |
 
 ```python
 cell_info = fenicsx_compat.cell_permutation_info(mesh.topology)
@@ -92,8 +92,8 @@ The permutation of every facet of every cell, shape `(num_cells, num_facets_per_
 
 | DOLFINx | Native |
 |---|---|
-| 0.10, 0.11 | `topology.create_entity_permutations()`, then `topology.get_facet_permutations()`, which is flat |
-| main (DOLFINx PR #3904) | `topology.create_entity_permutations(tdim - 1)`, then `topology.get_entity_permutations(tdim - 1)`, which is flat |
+| 0.10, 0.11 | [`topology.create_entity_permutations()`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.mesh.html#dolfinx.mesh.Topology.create_entity_permutations), then [`topology.get_facet_permutations()`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.mesh.html#dolfinx.mesh.Topology.get_facet_permutations), which is flat |
+| main (DOLFINx PR #3904) | {py:meth}`topology.create_entity_permutations(tdim - 1)<dolfinx.mesh.Topology.create_entity_permutations>`, then {py:meth}`topology.get_entity_permutations(tdim - 1)<dolfinx.mesh.Topology.get_entity_permutations>`, which is flat |
 
 ```python
 perms = fenicsx_compat.facet_permutations(mesh.topology)
@@ -110,15 +110,15 @@ fenicsx_compat.transfer_meshtags_to_submesh(entity_tag, submesh, cell_to_parent,
     -> dolfinx.mesh.MeshTags
 ```
 
-Transfers tags on a parent mesh to a submesh created with `dolfinx.mesh.create_submesh`.
+Transfers tags on a parent mesh to a submesh created with {py:func}`dolfinx.mesh.create_submesh`.
 
 | DOLFINx | Native |
 |---|---|
-| 0.10 | No equivalent. Raises `NotImplementedError`; `scifem.transfer_meshtags_to_submesh` has a compiled implementation. |
-| 0.11 | `dolfinx.mesh.transfer_meshtags_to_submesh(entity_tag, submesh, vertex_to_parent, cell_to_parent)` |
-| main | `dolfinx.mesh.transfer_meshtags_to_submesh(entity_tag, submesh, cell_to_parent, vertex_to_parent)` |
+| 0.10 | No equivalent. Raises `NotImplementedError`; {py:func}`scifem.transfer_meshtags_to_submesh` has a compiled implementation. |
+| 0.11 | [`dolfinx.mesh.transfer_meshtags_to_submesh(entity_tag, submesh, vertex_to_parent, cell_to_parent)`](https://docs.fenicsproject.org/dolfinx/v0.11.0.post0/python/generated/dolfinx.mesh.html#dolfinx.mesh.transfer_meshtags_to_submesh) |
+| main | {py:func}`dolfinx.mesh.transfer_meshtags_to_submesh(entity_tag, submesh, cell_to_parent, vertex_to_parent)<dolfinx.mesh.transfer_meshtags_to_submesh>` |
 
-The two maps swapped places between 0.11 and main while keeping their names, so a positional call that is right on one version passes the maps the wrong way round on the other. That does not raise. The wrapper forwards by keyword, and takes the maps in the order `create_submesh` returns them:
+The two maps swapped places between 0.11 and main while keeping their names, so a positional call that is right on one version passes the maps the wrong way round on the other. That does not raise. The wrapper forwards by keyword, and takes the maps in the order {py:func}`create_submesh<dolfinx.mesh.create_submesh>` returns them:
 
 ```python
 submesh, cell_map, vertex_map, _ = dolfinx.mesh.create_submesh(mesh, tdim, cells)

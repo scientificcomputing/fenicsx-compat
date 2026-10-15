@@ -1,6 +1,6 @@
 # Forms and PETSc assembly
 
-The PETSc functions need petsc4py. Without it, `set_bc`, `apply_lifting_and_set_bc`, `zero_petsc_vector` and `ghost_update` raise `RuntimeError`; `bcs_by_block` and `form_map` work regardless.
+The PETSc functions need petsc4py. Without it, {py:func}`set_bc<fenicsx_compat.petsc.set_bc>`, {py:func}`apply_lifting_and_set_bc<fenicsx_compat.petsc.apply_lifting_and_set_bc>`, {py:func}`zero_petsc_vector<fenicsx_compat.petsc.zero_petsc_vector>` and {py:func}`ghost_update<fenicsx_compat.petsc.ghost_update>` raise `RuntimeError`; {py:func}`bcs_by_block<fenicsx_compat.petsc.bcs_by_block>` and {py:func}`form_map<fenicsx_compat.mesh.form_map>` work regardless.
 
 (fn-form-map)=
 ## `form_map`
@@ -13,14 +13,14 @@ The index map and block size of the test space of a linear form.
 
 | DOLFINx | Native |
 |---|---|
-| 0.10 | `form.function_spaces[0].dofmaps(0).index_map`, `.index_map_bs`; `dofmaps` is a method |
-| 0.11, main | `form.function_spaces[0].dofmaps[0].index_map`, `.index_map_bs`; `dofmaps` is a sequence |
+| 0.10 | [`form.function_spaces[0].dofmaps(0).index_map`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.dofmaps), [`.index_map_bs`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.fem.html#dolfinx.fem.DofMap.index_map_bs); [`dofmaps`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.dofmaps) is a method |
+| 0.11, main | {py:attr}`form.function_spaces[0].dofmaps[0].index_map<dolfinx.fem.FunctionSpace.dofmaps>`, {py:attr}`.index_map_bs<dolfinx.fem.DofMap.index_map_bs>`; {py:attr}`dofmaps<dolfinx.fem.FunctionSpace.dofmaps>` is a sequence |
 
 ```python
 imap, bs = fenicsx_compat.form_map(L)
 ```
 
-For a mesh with a single cell type, `form.function_spaces[0].dofmap.index_map` and `.index_map_bs` work on every version, without this function.
+For a mesh with a single cell type, {py:attr}`form.function_spaces[0].dofmap.index_map<dolfinx.fem.FunctionSpace.dofmap>` and {py:attr}`.index_map_bs<dolfinx.fem.DofMap.index_map_bs>` work on every version, without this function.
 
 (fn-bcs-by-block)=
 ## `bcs_by_block`
@@ -33,9 +33,9 @@ Sorts boundary conditions by the space they constrain: one list per space in `sp
 
 | DOLFINx | Native |
 |---|---|
-| 0.10, 0.11, main | `dolfinx.fem.bcs_by_block(spaces, bcs)` |
+| 0.10, 0.11, main | {py:func}`dolfinx.fem.bcs_by_block(spaces, bcs)<dolfinx.fem.bcs_by_block>` |
 
-The native call works as long as `spaces` and `bc.function_space` are both C++ objects (0.10, 0.11) or both Python objects (main), which is the case for `dolfinx.fem.extract_function_spaces(a, i)`. Which kind each one is changed in DOLFINx PRs #4342 and #4350, so the native call fails when the two are mixed, for instance with a list of spaces built in Python on 0.11. This function accepts either kind on every version:
+The native call works as long as `spaces` and {py:attr}`bc.function_space<dolfinx.fem.DirichletBC.function_space>` are both C++ objects (0.10, 0.11) or both Python objects (main), which is the case for {py:func}`dolfinx.fem.extract_function_spaces(a, i)<dolfinx.fem.extract_function_spaces>`. Which kind each one is changed in DOLFINx PRs #4342 and #4350, so the native call fails when the two are mixed, for instance with a list of spaces built in Python on 0.11. This function accepts either kind on every version:
 
 ```python
 bcs1 = fenicsx_compat.bcs_by_block(dolfinx.fem.extract_function_spaces(a, 1), bcs)
@@ -53,7 +53,7 @@ Sets the Dirichlet values in a PETSc vector: `b[dofs] = alpha * (g - x0)`.
 
 | DOLFINx | Native |
 |---|---|
-| 0.10, 0.11, main | `dolfinx.fem.petsc.set_bc(b, bcs, x0=x0, alpha=alpha)`, with `bcs` flat for a plain vector, and one list per block for a blocked or nested vector |
+| 0.10, 0.11, main | {py:func}`dolfinx.fem.petsc.set_bc(b, bcs, x0=x0, alpha=alpha)<dolfinx.fem.petsc.set_bc>`, with `bcs` flat for a plain vector, and one list per block for a blocked or nested vector |
 
 The native call is the same everywhere. This function also accepts a single block given as `[[bc, ...]]` for a plain vector, which the native call rejects.
 
@@ -73,8 +73,8 @@ Applies lifting to `b` and sets its Dirichlet values, with the ghost updates in 
 
 | DOLFINx | Native, the same on every version |
 |---|---|
-| single form | `apply_lifting(b, [a], bcs=[bcs], x0=[x], alpha=alpha)`, reverse ghost update, `set_bc(b, bcs, x0=x, alpha=alpha)`, forward ghost update |
-| blocked or nested | `apply_lifting(b, a, bcs=bcs_by_block(extract_function_spaces(a, 1), bcs), x0=x, alpha=alpha)`, reverse ghost update, `set_bc(b, bcs_by_block(extract_function_spaces(a, 0), bcs), x0=x, alpha=alpha)`, forward ghost update |
+| single form | {py:func}`apply_lifting(b, [a], bcs=[bcs], x0=[x], alpha=alpha)<dolfinx.fem.petsc.apply_lifting>`, reverse ghost update, {py:func}`set_bc(b, bcs, x0=x, alpha=alpha)<dolfinx.fem.petsc.set_bc>`, forward ghost update |
+| blocked or nested | {py:func}`apply_lifting(b, a, bcs=bcs_by_block(extract_function_spaces(a, 1), bcs), x0=x, alpha=alpha)<dolfinx.fem.petsc.apply_lifting>`, reverse ghost update, {py:func}`set_bc(b, bcs_by_block(extract_function_spaces(a, 0), bcs), x0=x, alpha=alpha)<dolfinx.fem.petsc.set_bc>`, forward ghost update |
 
 ```python
 b = dolfinx.fem.petsc.assemble_vector(L)
@@ -123,4 +123,4 @@ from petsc4py import PETSc
 fenicsx_compat.ghost_update(b, PETSc.InsertMode.ADD_VALUES, PETSc.ScatterMode.REVERSE)
 ```
 
-Like `zero_petsc_vector`, it does not depend on the version.
+Like {py:func}`zero_petsc_vector<fenicsx_compat.petsc.zero_petsc_vector>`, it does not depend on the version.
