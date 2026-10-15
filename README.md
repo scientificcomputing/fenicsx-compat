@@ -34,6 +34,15 @@ To install the development version from GitHub, run
 python3 -m pip install git+https://github.com/scientificcomputing/fenicsx-compat.git
 ```
 
+## From source
+
+To build without build isolation, first install the build requirements from the `build` dependency group (requires pip >= 25.1), then install from a clone of the repository:
+
+```bash
+python3 -m pip install --group build
+python3 -m pip install --check-build-dependencies --no-build-isolation .
+```
+
 # Documentation
 
 The [documentation](https://scientificcomputing.github.io/fenicsx-compat) lists every function in the package: what it does, what DOLFINx 0.10, 0.11 and main do natively, and how to call it.
