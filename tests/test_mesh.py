@@ -16,6 +16,7 @@ from fenicsx_compat.mesh import (
     cell_permutation_info,
     cmap,
     create_cell_partitioner,
+    create_facet_orientations,
     create_mesh,
     dofmap,
     facet_permutations,
@@ -234,3 +235,33 @@ def test_cell_permutation_info_encodes_edge_reflections(comm):
     assert info.shape == (expected.shape[0],)
     bits = (info[:, None] >> np.arange(3, dtype=info.dtype)) & 1
     np.testing.assert_array_equal(bits, expected)
+
+
+def _wall_of_unit_cube(comm):
+    """The facets on x = 0 of a unit cube: a manifold, tdim 2 in gdim 3."""
+    msh = dolfinx.mesh.create_unit_cube(comm, 3, 3, 3)
+    facets = dolfinx.mesh.locate_entities_boundary(msh, 2, lambda x: np.isclose(x[0], 0.0))
+    return dolfinx.mesh.create_submesh(msh, 2, facets)[0]
+
+
+def test_create_facet_orientations_lets_raviart_thomas_be_built_on_a_manifold(comm):
+    submesh = _wall_of_unit_cube(comm)
+    assert submesh.topology.dim == 2 and submesh.geometry.dim == 3
+    create_facet_orientations(submesh.topology)
+    # Without the orientations, dolfinx with `create_facet_orientations` refuses this.
+    V = dolfinx.fem.functionspace(submesh, ("RT", 1))
+    submesh.topology.create_entities(1)
+    # One RT1 dof per edge of the 3 x 3 wall: 2 * 3 * 4 axis-aligned edges plus 9 diagonals.
+    assert V.dofmap.index_map.size_global == submesh.topology.index_map(1).size_global == 33
+    if hasattr(submesh.topology, "has_facet_orientations"):
+        assert submesh.topology.has_facet_orientations()
+
+
+def test_create_facet_orientations_matches_the_installed_dolfinx_on_a_volume_mesh(comm):
+    msh = dolfinx.mesh.create_unit_cube(comm, 2, 2, 2)
+    if hasattr(msh.topology, "create_facet_orientations"):
+        # Native behaviour, passed through: only defined for tdim 2.
+        with pytest.raises(ValueError):
+            create_facet_orientations(msh.topology)
+    else:
+        create_facet_orientations(msh.topology)

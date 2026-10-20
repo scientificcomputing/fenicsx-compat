@@ -102,6 +102,31 @@ perm = perms[cell, local_facet]
 
 On main, an interval mesh gives an empty array, since points have no orientation.
 
+(fn-create-facet-orientations)=
+## `create_facet_orientations`
+
+```{versionadded} 0.3.0
+```
+
+```python
+fenicsx_compat.create_facet_orientations(topology) -> None
+```
+
+Computes the facet orientations that Raviart-Thomas and other contravariant Piola spaces need on a manifold. Call it on every rank, before creating the space.
+
+| DOLFINx | Native |
+|---|---|
+| 0.10, 0.11 | No equivalent, and none needed: such spaces are created without it. Does nothing. |
+| main (DOLFINx PR #4625) | {py:meth}`topology.create_facet_orientations()<dolfinx.mesh.Topology.create_facet_orientations>`. Creating such a space on a manifold raises `RuntimeError` until it has been called. |
+
+```python
+submesh = dolfinx.mesh.create_submesh(mesh, 2, boundary_facets)[0]
+fenicsx_compat.create_facet_orientations(submesh.topology)
+V = dolfinx.fem.functionspace(submesh, ("RT", 1))
+```
+
+On main it raises `ValueError` for a topology whose dimension is not 2, as the native method does. Lagrange and Nédélec spaces do not need it.
+
 (fn-transfer-meshtags-to-submesh)=
 ## `transfer_meshtags_to_submesh`
 

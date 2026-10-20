@@ -109,6 +109,25 @@ def facet_permutations(topology: dolfinx.mesh.Topology) -> npt.NDArray[np.uint8]
     return np.asarray(perms).reshape(-1, num_facets_per_cell)
 
 
+def create_facet_orientations(topology: dolfinx.mesh.Topology) -> None:
+    """Compute the facet orientations that contravariant Piola spaces on a manifold need.
+
+    dolfinx PR #4625 (post-0.11) refuses to create a Raviart-Thomas or
+    other contravariant Piola space on a manifold until
+    `topology.create_facet_orientations()` has been called, and that
+    method does not exist on 0.10 and 0.11, which create such spaces
+    without it. Calls it where it exists and does nothing otherwise.
+    Dispatches on `hasattr`.
+
+    Call it before creating the space, on every rank: it is collective,
+    and changing the orientations afterwards invalidates functions on
+    existing spaces. Where it exists it raises `ValueError` unless the
+    topological dimension is 2, as the native method does.
+    """
+    if hasattr(topology, "create_facet_orientations"):
+        topology.create_facet_orientations()
+
+
 def create_cell_partitioner(
     ghost_mode: dolfinx.mesh.GhostMode,
     max_facet_to_cell_links: int = 2,

@@ -5,8 +5,13 @@ import dolfinx.graph
 import dolfinx.mesh
 import pytest
 
-from fenicsx_compat.io import model_to_mesh, pyvista_allow_snake_case, resolve_adios_scope
-from fenicsx_compat.mesh import create_cell_partitioner
+from fenicsx_compat.io import (
+    model_to_mesh,
+    pyvista_allow_snake_case,
+    resolve_adios_scope,
+    vtk_cell_type,
+)
+from fenicsx_compat.mesh import create_cell_partitioner, dofmap
 
 # gmsh is optional: the model_to_mesh tests run where it is installed and skip elsewhere.
 try:
@@ -115,3 +120,44 @@ def test_model_to_mesh_respects_explicit_partitioner(comm, unit_square_model):
     assert mesh_data.mesh.topology.index_map(2).size_global > 0
     if comm.size > 1:
         assert calls, "explicit partitioner must be used, not silently replaced"
+
+
+@pytest.mark.parametrize(
+    "create, vtk_id",
+    [
+        (lambda comm: dolfinx.mesh.create_unit_interval(comm, 4), 68),
+        (lambda comm: dolfinx.mesh.create_unit_square(comm, 2, 2), 69),
+        (
+            lambda comm: dolfinx.mesh.create_unit_square(
+                comm, 2, 2, cell_type=dolfinx.mesh.CellType.quadrilateral
+            ),
+            70,
+        ),
+        (lambda comm: dolfinx.mesh.create_unit_cube(comm, 2, 2, 2), 71),
+        (
+            lambda comm: dolfinx.mesh.create_unit_cube(
+                comm, 2, 2, 2, cell_type=dolfinx.mesh.CellType.hexahedron
+            ),
+            72,
+        ),
+    ],
+)
+def test_vtk_cell_type_is_the_arbitrary_lagrange_type_of_the_mesh_cell(comm, create, vtk_id):
+    msh = create(comm)
+    num_nodes = dofmap(msh).shape[1]
+    # Passing the topological dimension as the node count, as callers did before
+    # dolfinx PR #4621, raises for quadrilaterals and hexahedra there.
+    assert vtk_cell_type(msh.topology.cell_type, num_nodes) == vtk_id
+
+
+@pytest.mark.parametrize(
+    "cell_type, num_nodes, vtk_id",
+    [
+        (dolfinx.mesh.CellType.triangle, 6, 69),
+        (dolfinx.mesh.CellType.quadrilateral, 9, 70),
+        (dolfinx.mesh.CellType.tetrahedron, 10, 71),
+        (dolfinx.mesh.CellType.hexahedron, 27, 72),
+    ],
+)
+def test_vtk_cell_type_of_quadratic_lagrange_cells(cell_type, num_nodes, vtk_id):
+    assert vtk_cell_type(cell_type, num_nodes) == vtk_id

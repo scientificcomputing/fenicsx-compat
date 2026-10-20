@@ -1,6 +1,32 @@
 # Output and visualisation
 
-These two functions depend on the version of ADIOS2 and PyVista, not on DOLFINx. For reading gmsh models, see [`model_to_mesh`](fn-model-to-mesh).
+For reading gmsh models, see [`model_to_mesh`](fn-model-to-mesh).
+
+(fn-vtk-cell-type)=
+## `vtk_cell_type`
+
+```{versionadded} 0.3.0
+```
+
+```python
+fenicsx_compat.vtk_cell_type(cell_type, num_nodes) -> int
+```
+
+The VTK cell type identifier of a cell of type `cell_type` with `num_nodes` geometry nodes, e.g. for writing a mesh in a VTK format.
+
+| DOLFINx | Native |
+|---|---|
+| 0.10, 0.11 | `dolfinx.cpp.io.get_vtk_cell_type(cell_type, tdim)`, where the second argument is a dimension. `num_nodes` is not used. |
+| main (DOLFINx PR #4621) | `dolfinx.cpp.io.get_vtk_cell_type(cell_type, num_nodes)`. Passing the dimension there raises for quadrilaterals and hexahedra. |
+
+```python
+num_nodes = fenicsx_compat.dofmap(mesh).shape[1]
+vtk_type = fenicsx_compat.vtk_cell_type(mesh.topology.cell_type, num_nodes)
+```
+
+For Lagrange geometry both return the arbitrary-degree Lagrange type, e.g. 72 for any hexahedron. Only main returns the serendipity types (23 for an 8-node quadrilateral, 25 for a 20-node hexahedron) and rejects node counts that no layout has.
+
+The next two functions depend on the version of ADIOS2 and PyVista, not on DOLFINx.
 
 (fn-resolve-adios-scope)=
 ## `resolve_adios_scope`
