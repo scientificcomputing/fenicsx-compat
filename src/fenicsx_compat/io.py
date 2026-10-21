@@ -1,9 +1,34 @@
 import inspect
 
 import dolfinx
+import dolfinx.cpp.io
 import dolfinx.mesh
 
 from .mesh import create_cell_partitioner
+
+
+def vtk_cell_type(cell_type: dolfinx.mesh.CellType, num_nodes: int) -> int:
+    """The VTK cell type identifier of a cell with `num_nodes` geometry nodes.
+
+    dolfinx 0.10 and 0.11 have `dolfinx.cpp.io.get_vtk_cell_type(cell,
+    dim)`, which returns the identifier of the dimension-`dim` sub-entity
+    of `cell`. dolfinx PR #4621 (post-0.11) replaced `dim` with the
+    number of nodes, so that it can tell the serendipity layouts apart
+    and reject node counts no Lagrange layout has; passing the
+    topological dimension there raises for quadrilaterals and hexahedra.
+    For a Lagrange layout both return the same arbitrary-degree Lagrange
+    identifier. On 0.10 and 0.11 `num_nodes` is not checked, and the
+    whole cell's identifier is returned.
+
+    Neither the argument count nor `inspect.signature` tells the two
+    apart, so this dispatches on the parameter name in the nanobind
+    signature, i.e. the first line of the docstring.
+    """
+    get_vtk_cell_type = dolfinx.cpp.io.get_vtk_cell_type
+    signature = (get_vtk_cell_type.__doc__ or "").split("\n", 1)[0]
+    if "num_nodes" in signature:
+        return get_vtk_cell_type(cell_type, num_nodes)
+    return get_vtk_cell_type(cell_type, dolfinx.mesh.cell_dim(cell_type))
 
 
 def resolve_adios_scope(adios2):

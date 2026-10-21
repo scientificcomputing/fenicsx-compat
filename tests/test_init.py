@@ -12,6 +12,7 @@ def test_all_public_functions_are_re_exported_at_top_level():
         "cell_permutation_info",
         "facet_permutations",
         "create_cell_partitioner",
+        "create_facet_orientations",
         "create_mesh",
         "reconstruct_mesh",
         "transfer_meshtags_to_submesh",
@@ -39,6 +40,7 @@ def test_all_public_functions_are_re_exported_at_top_level():
         "resolve_adios_scope",
         "model_to_mesh",
         "pyvista_allow_snake_case",
+        "vtk_cell_type",
     ]
     for name in expected:
         assert hasattr(fenicsx_compat, name), f"fenicsx_compat.{name} is not re-exported"

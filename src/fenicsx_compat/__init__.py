@@ -10,7 +10,7 @@ from .fem import (
     permute_interpolation_data,
     real_functionspace,
 )
-from .io import model_to_mesh, pyvista_allow_snake_case, resolve_adios_scope
+from .io import model_to_mesh, pyvista_allow_snake_case, resolve_adios_scope, vtk_cell_type
 from .la import (
     create_index_map,
     create_sub_index_map,
@@ -23,6 +23,7 @@ from .mesh import (
     cell_permutation_info,
     cmap,
     create_cell_partitioner,
+    create_facet_orientations,
     create_mesh,
     dofmap,
     facet_permutations,
@@ -54,6 +55,7 @@ __all__ = [
     "cell_permutation_info",
     "facet_permutations",
     "create_cell_partitioner",
+    "create_facet_orientations",
     "create_mesh",
     "reconstruct_mesh",
     "transfer_meshtags_to_submesh",
@@ -80,5 +82,6 @@ __all__ = [
     "apply_pullback_inverse",
     "resolve_adios_scope",
     "model_to_mesh",
+    "vtk_cell_type",
     "pyvista_allow_snake_case",
 ]

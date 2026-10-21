@@ -15,6 +15,7 @@ Find what your code does in the first column. The last column says which DOLFINx
 | Get the topology of a `MeshTags` as the Python object | [`meshtags_topology`](fn-meshtags-topology) | 0.10, 0.11 / main |
 | Get the cell permutation info | [`cell_permutation_info`](fn-cell-permutation-info) | 0.10, 0.11 / main |
 | Get the orientation of each facet as seen from each cell | [`facet_permutations`](fn-facet-permutations) | 0.10, 0.11 / main |
+| Create a Raviart-Thomas space on a manifold | [`create_facet_orientations`](fn-create-facet-orientations) | 0.10, 0.11 / main |
 | Move tags from a mesh to a submesh | [`transfer_meshtags_to_submesh`](fn-transfer-meshtags-to-submesh) | 0.10 / 0.11 / main |
 
 ## Index maps and vectors
@@ -61,6 +62,7 @@ Find what your code does in the first column. The last column says which DOLFINx
 
 | If your code needs to | Use | Differs between |
 |---|---|---|
+| Get the VTK cell type of a mesh cell | [`vtk_cell_type`](fn-vtk-cell-type) | 0.10, 0.11 / main |
 | Get ADIOS2's low-level bindings | [`resolve_adios_scope`](fn-resolve-adios-scope) | ADIOS2 2.9 / 2.10 and newer |
 | Let PyVista use VTK's snake_case names | [`pyvista_allow_snake_case`](fn-pyvista-allow-snake-case) | PyVista 0.45, 0.46 / 0.47 and newer |
 | Branch on the DOLFINx version | [`at_least`](fn-at-least), [`before`](fn-before) | None |
