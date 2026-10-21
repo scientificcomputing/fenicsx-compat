@@ -56,6 +56,8 @@ def test_index_to_dest_ranks_matches_gathered_ghosts(comm, unwrap):
     msh = dolfinx.mesh.create_unit_square(comm, 5, 5)
     imap = msh.topology.index_map(msh.topology.dim)
     ranks, offsets = index_to_dest_ranks(unwrap_index_map(imap) if unwrap else imap, tag=1202)
+    assert isinstance(ranks, np.ndarray) and ranks.dtype == np.int32
+    assert isinstance(offsets, np.ndarray) and offsets.dtype == np.int32
 
     # Independent oracle: every rank's ghosts, by global index.
     ghosts_by_rank = comm.allgather(set(imap.ghosts.tolist()))
