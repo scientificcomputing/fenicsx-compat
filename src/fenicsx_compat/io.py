@@ -1,10 +1,18 @@
+from __future__ import annotations
+
 import inspect
+from typing import TYPE_CHECKING
 
 import dolfinx
 import dolfinx.cpp.io
 import dolfinx.mesh
 
 from .mesh import create_cell_partitioner
+
+if TYPE_CHECKING:
+    # Only for the return annotation of `model_to_mesh`, which imports
+    # `dolfinx.io.gmsh` when called rather than here.
+    import dolfinx.io.gmsh
 
 
 def vtk_cell_type(cell_type: dolfinx.mesh.CellType, num_nodes: int) -> int:
@@ -60,10 +68,12 @@ def model_to_mesh(
     ghost_mode: dolfinx.mesh.GhostMode = dolfinx.mesh.GhostMode.shared_facet,
     max_facet_to_cell_links: int = 2,
     dtype=dolfinx.default_real_type,
-):
-    """Create a mesh from a gmsh model, with a given ghost mode.
+) -> dolfinx.io.gmsh.MeshData:
+    """Call `dolfinx.io.gmsh.model_to_mesh` with a given ghost mode.
 
-    Returns the `dolfinx.io.gmsh.MeshData` that dolfinx builds. Across the
+    Like dolfinx's function, this returns a `dolfinx.io.gmsh.MeshData`, not
+    a mesh: the mesh is its `.mesh`, next to the cell, facet and other
+    entity tags and the physical groups read from the model. Across the
     same dolfinx PR #4403 split as `create_mesh`: from there,
     `model_to_mesh` takes `ghost_mode` and threads it into whichever
     partitioner is used. On 0.10 and 0.11 the ghost mode can only reach the
