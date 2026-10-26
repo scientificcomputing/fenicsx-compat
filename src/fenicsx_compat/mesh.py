@@ -260,6 +260,28 @@ def reconstruct_mesh(mesh: dolfinx.mesh.Mesh, coordinate_element_degree: int) ->
     return dolfinx.mesh.Mesh(cpp_mesh, ufl.Mesh(new_c_el))
 
 
+def submesh_to_parent(
+    entity_map, entities: npt.NDArray[np.int32] | None = None
+) -> npt.NDArray[np.int32]:
+    """The parent entity of each of `entities` of a submesh.
+
+    `entity_map` is one of the maps `dolfinx.mesh.create_submesh` returns
+    (the entity map or the vertex map). dolfinx 0.10 returns these as
+    arrays holding the parent entity of each submesh entity; dolfinx
+    PR #4140 (0.11) made them `dolfinx.mesh.EntityMap` objects, which map
+    with `sub_topology_to_topology`. If `entities` is not given, all local
+    (owned and ghost) entities of the submesh are mapped. Dispatches on
+    `isinstance`.
+    """
+    if isinstance(entity_map, np.ndarray):
+        parent = entity_map
+        return parent if entities is None else parent[entities]
+    if entities is None:
+        imap = entity_map.sub_topology.index_map(entity_map.dim)
+        entities = np.arange(imap.size_local + imap.num_ghosts, dtype=np.int32)
+    return np.asarray(entity_map.sub_topology_to_topology(entities, inverse=False), dtype=np.int32)
+
+
 def transfer_meshtags_to_submesh(
     entity_tag: dolfinx.mesh.MeshTags,
     submesh: dolfinx.mesh.Mesh,

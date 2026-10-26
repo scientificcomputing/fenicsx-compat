@@ -17,6 +17,7 @@ Find what your code does in the first column. The last column says which DOLFINx
 | Get the orientation of each facet as seen from each cell | [`facet_permutations`](fn-facet-permutations) | 0.10, 0.11 / main |
 | Create a Raviart-Thomas space on a manifold | [`create_facet_orientations`](fn-create-facet-orientations) | 0.10, 0.11 / main |
 | Move tags from a mesh to a submesh | [`transfer_meshtags_to_submesh`](fn-transfer-meshtags-to-submesh) | 0.10 / 0.11 / main |
+| Find the parent entities of submesh entities | [`submesh_to_parent`](fn-submesh-to-parent) | 0.10 / 0.11, main |
 
 ## Index maps and vectors
 

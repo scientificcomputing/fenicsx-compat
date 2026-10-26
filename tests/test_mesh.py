@@ -23,6 +23,7 @@ from fenicsx_compat.mesh import (
     form_map,
     meshtags_topology,
     reconstruct_mesh,
+    submesh_to_parent,
     transfer_meshtags_to_submesh,
 )
 
@@ -150,6 +151,37 @@ def test_reconstruct_mesh_changes_coordinate_element_degree(comm):
     new_msh = reconstruct_mesh(msh, coordinate_element_degree=2)
     assert new_msh.geometry.x.shape[0] > msh.geometry.x.shape[0]
     assert cmap(new_msh).degree == 2
+
+
+def test_submesh_to_parent_maps_cells_and_vertices_to_the_same_points(comm):
+    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
+    tdim = msh.topology.dim
+    cells = dolfinx.mesh.locate_entities(msh, tdim, lambda x: x[0] <= 0.5)
+    submesh, cell_map, vertex_map, _ = dolfinx.mesh.create_submesh(msh, tdim, cells)
+
+    num_sub_cells = submesh.topology.index_map(tdim).size_local
+    num_sub_cells += submesh.topology.index_map(tdim).num_ghosts
+    sub_cells = np.arange(num_sub_cells, dtype=np.int32)
+    parent_cells = submesh_to_parent(cell_map)
+    assert parent_cells.dtype == np.int32
+    assert len(parent_cells) == num_sub_cells
+    np.testing.assert_array_equal(submesh_to_parent(cell_map, sub_cells[::2]), parent_cells[::2])
+    np.testing.assert_allclose(
+        dolfinx.mesh.compute_midpoints(submesh, tdim, sub_cells),
+        dolfinx.mesh.compute_midpoints(msh, tdim, parent_cells),
+    )
+
+    num_sub_vertices = submesh.topology.index_map(0).size_local
+    num_sub_vertices += submesh.topology.index_map(0).num_ghosts
+    sub_vertices = np.arange(num_sub_vertices, dtype=np.int32)
+    parent_vertices = submesh_to_parent(vertex_map)
+    assert len(parent_vertices) == num_sub_vertices
+    submesh.topology.create_connectivity(0, tdim)
+    msh.topology.create_connectivity(0, tdim)
+    np.testing.assert_allclose(
+        dolfinx.mesh.compute_midpoints(submesh, 0, sub_vertices),
+        dolfinx.mesh.compute_midpoints(msh, 0, parent_vertices),
+    )
 
 
 def test_transfer_meshtags_to_submesh_matches_the_installed_dolfinx(comm):
