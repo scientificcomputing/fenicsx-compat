@@ -30,6 +30,7 @@ from .mesh import (
     form_map,
     meshtags_topology,
     reconstruct_mesh,
+    submesh_to_parent,
     transfer_meshtags_to_submesh,
 )
 from .optional import require_module
@@ -59,6 +60,7 @@ __all__ = [
     "create_mesh",
     "reconstruct_mesh",
     "transfer_meshtags_to_submesh",
+    "submesh_to_parent",
     "meshtags_topology",
     "create_index_map",
     "create_sub_index_map",

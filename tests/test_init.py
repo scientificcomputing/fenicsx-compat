@@ -16,6 +16,7 @@ def test_all_public_functions_are_re_exported_at_top_level():
         "create_mesh",
         "reconstruct_mesh",
         "transfer_meshtags_to_submesh",
+        "submesh_to_parent",
         "meshtags_topology",
         "create_index_map",
         "create_sub_index_map",

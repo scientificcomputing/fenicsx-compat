@@ -127,6 +127,29 @@ V = dolfinx.fem.functionspace(submesh, ("RT", 1))
 
 On main it raises `ValueError` for a topology whose dimension is not 2, as the native method does. Lagrange and Nédélec spaces do not need it.
 
+(fn-submesh-to-parent)=
+## `submesh_to_parent`
+
+```{versionadded} 0.4.0
+```
+
+```python
+fenicsx_compat.submesh_to_parent(entity_map, entities=None) -> numpy.ndarray
+```
+
+The parent entity of each of `entities` of a submesh, given one of the maps {py:func}`create_submesh<dolfinx.mesh.create_submesh>` returns (the entity map or the vertex map). Without `entities`, all local (owned and ghost) entities of the submesh are mapped.
+
+| DOLFINx | {py:func}`create_submesh<dolfinx.mesh.create_submesh>` returns the maps as | Native |
+|---|---|---|
+| 0.10 | arrays, the parent entity of each submesh entity | `entity_map[entities]` |
+| 0.11, main (DOLFINx PR #4140) | {py:class}`dolfinx.mesh.EntityMap` | {py:meth}`entity_map.sub_topology_to_topology(entities, inverse=False)<dolfinx.mesh.EntityMap.sub_topology_to_topology>` |
+
+```python
+submesh, cell_map, vertex_map, _ = dolfinx.mesh.create_submesh(mesh, tdim, cells)
+parent_cells = fenicsx_compat.submesh_to_parent(cell_map)
+parent_vertices = fenicsx_compat.submesh_to_parent(vertex_map)
+```
+
 (fn-transfer-meshtags-to-submesh)=
 ## `transfer_meshtags_to_submesh`
 
