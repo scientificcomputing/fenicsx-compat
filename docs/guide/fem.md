@@ -48,6 +48,27 @@ cpp_element = fenicsx_compat.finite_element_ctor_kwargs(
 
 `basix_element` is the C++ basix element, `ufl_element.basix_element._e`. Pass `value_shape=None` for an element without blocks.
 
+(fn-dirichletbc-init-kwargs)=
+## `dirichletbc_init_kwargs`
+
+```python
+fenicsx_compat.dirichletbc_init_kwargs(V, g) -> dict
+```
+
+Returns the keyword arguments {py:class}`dolfinx.fem.DirichletBC` needs, besides the C++ condition, when wrapping a C++ Dirichlet condition built by hand. `V` is the constrained space and `g` the value; `V` need not be `g.function_space`.
+
+| DOLFINx | Native |
+|---|---|
+| 0.10, 0.11 | [`DirichletBC(bc)`](https://docs.fenicsproject.org/dolfinx/v0.10.0.post5/python/generated/dolfinx.fem.html#dolfinx.fem.DirichletBC); space and value are read back from the C++ condition |
+| main (DOLFINx PR #4342) | {py:class}`DirichletBC(bc, V, g)<dolfinx.fem.DirichletBC>`; the Python wrapper keeps the `V` and `g` it is given |
+
+```python
+cpp_bc = dolfinx.cpp.fem.DirichletBC_float64(g._cpp_object, dofs)
+bc = dolfinx.fem.DirichletBC(cpp_bc, **fenicsx_compat.dirichletbc_init_kwargs(V, g))
+```
+
+The same keywords work from a subclass, `super().__init__(cpp_bc, **kwargs)`. Use {py:func}`dolfinx.fem.dirichletbc` instead whenever it can build the condition.
+
 (fn-interpolate)=
 ## `interpolate`
 

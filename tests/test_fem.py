@@ -10,6 +10,7 @@ import ufl
 
 from fenicsx_compat._dolfinx_version import at_least, before
 from fenicsx_compat.fem import (
+    dirichletbc_init_kwargs,
     expression_eval,
     finite_element_ctor_kwargs,
     interpolate,
@@ -228,3 +229,42 @@ def test_interpolate_to_submesh_entity_maps_builds_expression(comm):
     points = V.element.interpolation_points
     expr = interpolate_to_submesh_entity_maps(u, points)
     assert isinstance(expr, dolfinx.fem.Expression)
+
+
+def _bc_on_V_with_value_on_W(comm):
+    """A cpp bc whose value lives on W, a second space with the same layout as the
+    constrained space V. Keeping the two apart catches a helper that takes the
+    constrained space from the value instead of from V."""
+    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
+    V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
+    W = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
+    tdim = msh.topology.dim
+    msh.topology.create_connectivity(tdim - 1, tdim)
+    facets = dolfinx.mesh.exterior_facet_indices(msh.topology)
+    dofs = dolfinx.fem.locate_dofs_topological(V, tdim - 1, facets)
+    g = dolfinx.fem.Function(W)
+    g.x.array[:] = 3.0
+    cpp_class = getattr(dolfinx.cpp.fem, f"DirichletBC_{np.dtype(g.x.array.dtype).name}")
+    return V, g, dofs, cpp_class(g._cpp_object, dofs)
+
+
+def test_dirichletbc_init_kwargs_builds_a_working_bc(comm):
+    V, g, dofs, cpp_bc = _bc_on_V_with_value_on_W(comm)
+    bc = dolfinx.fem.DirichletBC(cpp_bc, **dirichletbc_init_kwargs(V, g))
+    x = np.zeros_like(g.x.array)
+    bc.set(x)
+    assert np.allclose(x[dofs], 3.0)
+    assert np.count_nonzero(x) == len(dofs)
+
+
+def test_dirichletbc_init_kwargs_keeps_V_and_g_on_the_wrapper(comm):
+    V, g, dofs, cpp_bc = _bc_on_V_with_value_on_W(comm)
+    kwargs = dirichletbc_init_kwargs(V, g)
+    if at_least("0.12.0.dev0"):
+        # From dolfinx PR #4342 the wrapper holds the Python space and value it is given.
+        bc = dolfinx.fem.DirichletBC(cpp_bc, **kwargs)
+        assert bc.function_space is V
+        assert bc.g is g
+    else:
+        # 0.10 and 0.11 read both back from the cpp object and take no keywords.
+        assert kwargs == {}

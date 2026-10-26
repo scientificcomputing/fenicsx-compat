@@ -47,6 +47,7 @@ Find what your code does in the first column. The last column says which DOLFINx
 | If your code needs to | Use | Differs between |
 |---|---|---|
 | Get the index map and block size of a linear form | [`form_map`](fn-form-map) | 0.10 / 0.11, main |
+| Wrap a hand-built C++ Dirichlet condition | [`dirichletbc_init_kwargs`](fn-dirichletbc-init-kwargs) | 0.10, 0.11 / main |
 | Sort boundary conditions by block | [`bcs_by_block`](fn-bcs-by-block) | 0.10, 0.11 / main, when spaces are mixed |
 | Set Dirichlet values in a PETSc vector | [`set_bc`](fn-set-bc) | None |
 | Apply lifting and set Dirichlet values in one call | [`apply_lifting_and_set_bc`](fn-apply-lifting-and-set-bc) | None |

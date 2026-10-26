@@ -2,6 +2,7 @@ from importlib.metadata import version as _version
 
 from ._dolfinx_version import at_least, before
 from .fem import (
+    dirichletbc_init_kwargs,
     expression_eval,
     finite_element_ctor_kwargs,
     interpolate,
@@ -70,6 +71,7 @@ __all__ = [
     "vector",
     "real_functionspace",
     "finite_element_ctor_kwargs",
+    "dirichletbc_init_kwargs",
     "interpolate",
     "expression_eval",
     "permute_facet_quadrature",

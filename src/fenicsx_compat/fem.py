@@ -100,6 +100,24 @@ def finite_element_ctor_kwargs(
         return constructor(basix_element, block_shape=value_shape, symmetric=symmetric)
 
 
+def dirichletbc_init_kwargs(
+    V: dolfinx.fem.FunctionSpace, g: dolfinx.fem.Function | dolfinx.fem.Constant
+) -> dict:
+    """Keyword arguments for wrapping a cpp DirichletBC in `dolfinx.fem.DirichletBC`.
+
+    dolfinx PR #4342 (post-0.11) made the Python wrapper hold the Python
+    space and value it is built with, so its initialiser takes
+    `(bc, V, g)`. 0.10 and 0.11 take `(bc)` only and read both back from
+    the cpp object. Unpack the result into the constructor, or into
+    `super().__init__` from a subclass: `DirichletBC(cpp_bc, **kwargs)`.
+    `V` is the constrained space, which need not be `g.function_space`.
+    Detected from the initialiser's signature.
+    """
+    if "V" in inspect.signature(dolfinx.fem.DirichletBC.__init__).parameters:
+        return {"V": V, "g": g}
+    return {}
+
+
 def interpolate(cpp_function, values: npt.NDArray, cells: npt.NDArray[np.int32]) -> None:
     """Interpolate raw values into a cpp Function, across the interpolate_f/interpolate rename."""
     if hasattr(cpp_function, "interpolate_f"):
