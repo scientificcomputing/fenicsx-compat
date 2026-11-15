@@ -1,3 +1,4 @@
+import inspect
 import warnings
 
 from mpi4py import MPI
@@ -151,6 +152,41 @@ def test_reconstruct_mesh_changes_coordinate_element_degree(comm):
     new_msh = reconstruct_mesh(msh, coordinate_element_degree=2)
     assert new_msh.geometry.x.shape[0] > msh.geometry.x.shape[0]
     assert cmap(new_msh).degree == 2
+    assert cmap(new_msh).variant == cmap(msh).variant
+
+
+def test_reconstruct_mesh_with_a_lagrange_variant(comm):
+    """Degree 3 needs a named variant, which places the nodes on an edge at the GLL
+    points instead of equispaced."""
+    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
+    variant = basix.LagrangeVariant.gll_isaac
+    new_msh = reconstruct_mesh(msh, 3, variant=variant)
+    assert cmap(new_msh).degree == 3
+    assert cmap(new_msh).variant == int(variant)
+
+    area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(domain=new_msh)))
+    assert np.isclose(comm.allreduce(area, op=MPI.SUM), 1)
+
+    # Nodes on the edge y = 0 of the first cell, [0, 1/4]: GLL points of degree 3
+    x = np.vstack(comm.allgather(new_msh.geometry.x))
+    on_edge = x[np.isclose(x[:, 1], 0) & (x[:, 0] > 1e-12) & (x[:, 0] < 0.25 - 1e-12), 0]
+    gll = 0.25 * (0.5 + np.array([-1, 1]) * np.sqrt(5) / 10)
+    np.testing.assert_allclose(np.unique(on_edge.round(12)), gll)
+
+
+def test_reconstruct_mesh_discontinuous(comm):
+    """A discontinuous coordinate element (dolfinx PR #4544) has its own nodes in every
+    cell; dolfinx versions without it raise."""
+    msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
+    if "discontinuous" not in inspect.signature(dolfinx.fem.coordinate_element).parameters:
+        with pytest.raises(NotImplementedError, match="PR #4544"):
+            reconstruct_mesh(msh, 2, discontinuous=True)
+        return
+    new_msh = reconstruct_mesh(msh, 2, discontinuous=True)
+    assert cmap(new_msh).degree == 2
+    assert cmap(new_msh).is_discontinuous
+    num_cells = msh.topology.index_map(2).size_global
+    assert new_msh.geometry.index_map().size_global == 6 * num_cells
 
 
 def test_submesh_to_parent_maps_cells_and_vertices_to_the_same_points(comm):

@@ -116,18 +116,25 @@ As for {py:func}`create_mesh<fenicsx_compat.mesh.create_mesh>`, an explicit `par
 ## `reconstruct_mesh`
 
 ```python
-fenicsx_compat.reconstruct_mesh(mesh, coordinate_element_degree)
+fenicsx_compat.reconstruct_mesh(mesh, coordinate_element_degree, variant=None, discontinuous=False)
 ```
 
 Returns a copy of `mesh` whose geometry uses a coordinate element of another degree. The topology is shared with `mesh`.
 
+- `variant` is the Lagrange variant of the new coordinate element, by default that of `mesh`. Degrees above 2 need a named variant, such as `basix.LagrangeVariant.gll_isaac`, when `mesh` has none, as for a first-order mesh created by DOLFINx.
+- `discontinuous=True` gives a discontinuous coordinate element, with no geometry nodes shared between cells ([DOLFINx PR #4544](https://github.com/FEniCS/dolfinx/pull/4544)). It needs a DOLFINx whose `coordinate_element` takes `discontinuous`, i.e. 0.12.0.dev0 or later, and raises `NotImplementedError` otherwise.
+
 | DOLFINx | Native |
 |---|---|
-| 0.10 | No equivalent. The geometry is rebuilt by hand here. |
-| 0.11, main | {py:func}`dolfinx.fem.interpolate_geometry(mesh, dolfinx.fem.coordinate_element(mesh.topology.cell_type, degree, variant=mesh.geometry.cmaps[0].variant, dtype=mesh.geometry.x.dtype))<dolfinx.fem.interpolate_geometry>` |
+| 0.10 | No equivalent. The geometry is rebuilt by hand here. No discontinuous coordinate elements. |
+| 0.11 | {py:func}`dolfinx.fem.interpolate_geometry(mesh, dolfinx.fem.coordinate_element(mesh.topology.cell_type, degree, variant=variant, dtype=mesh.geometry.x.dtype))<dolfinx.fem.interpolate_geometry>`. No discontinuous coordinate elements. |
+| main | As for 0.11, with `discontinuous=discontinuous` passed to {py:func}`dolfinx.fem.coordinate_element` |
 
 ```python
 mesh = dolfinx.mesh.create_unit_square(MPI.COMM_WORLD, 4, 4)
 quadratic = fenicsx_compat.reconstruct_mesh(mesh, 2)
 assert fenicsx_compat.cmap(quadratic).degree == 2
+
+cubic = fenicsx_compat.reconstruct_mesh(mesh, 3, variant=basix.LagrangeVariant.gll_isaac)
+assert fenicsx_compat.cmap(cubic).degree == 3
 ```
