@@ -194,20 +194,57 @@ def create_mesh(
     )
 
 
-def reconstruct_mesh(mesh: dolfinx.mesh.Mesh, coordinate_element_degree: int) -> dolfinx.mesh.Mesh:
-    """Copy a mesh, changing its coordinate element degree.
+def _coordinate_element_takes_discontinuous() -> bool:
+    """Whether `dolfinx.fem.coordinate_element` takes `discontinuous` (dolfinx PR #4544)."""
+    return "discontinuous" in inspect.signature(dolfinx.fem.coordinate_element).parameters
+
+
+def reconstruct_mesh(
+    mesh: dolfinx.mesh.Mesh,
+    coordinate_element_degree: int,
+    variant: basix.LagrangeVariant | None = None,
+    discontinuous: bool = False,
+) -> dolfinx.mesh.Mesh:
+    """Copy a mesh, changing its coordinate element.
 
     The topology is shared with the original mesh; the geometry is
     reconstructed. Delegates to the native `dolfinx.fem.interpolate_geometry`
     from dolfinx>=0.11; for 0.10, reconstructs the geometry manually (no
     native equivalent exists at that version).
+
+    Args:
+        mesh: The mesh to copy.
+        coordinate_element_degree: Degree of the new coordinate element.
+        variant: Lagrange variant of the new coordinate element. Defaults to
+            the variant of `mesh`. Degrees above 2 need a named variant, e.g.
+            `basix.LagrangeVariant.gll_isaac`, when `mesh` has none, as a
+            first-order mesh created by dolfinx.
+        discontinuous: Use a discontinuous coordinate element, with no
+            geometry nodes shared between cells (dolfinx PR #4544). Needs a
+            dolfinx whose `coordinate_element` takes `discontinuous`
+            (0.12.0.dev0 or later); dispatches on `inspect.signature`.
+
+    Returns:
+        The mesh with the new coordinate element.
+
+    Raises:
+        NotImplementedError: If `discontinuous` is set and dolfinx has no
+            discontinuous coordinate elements. Raised on every rank, before
+            any communication.
     """
+    if discontinuous and not _coordinate_element_takes_discontinuous():
+        raise NotImplementedError(
+            "Discontinuous coordinate elements require dolfinx>=0.12.0.dev0 (dolfinx PR #4544)."
+        )
+
     if hasattr(dolfinx.fem, "interpolate_geometry"):
+        kwargs = {"discontinuous": True} if discontinuous else {}
         new_cmap = dolfinx.fem.coordinate_element(
             mesh.topology.cell_type,
             coordinate_element_degree,
             dtype=mesh.geometry.x.dtype,
-            variant=cmap(mesh).variant,
+            variant=cmap(mesh).variant if variant is None else int(variant),
+            **kwargs,
         )
         return dolfinx.fem.interpolate_geometry(mesh, new_cmap)
 
@@ -215,7 +252,7 @@ def reconstruct_mesh(mesh: dolfinx.mesh.Mesh, coordinate_element_degree: int) ->
     assert ud is not None
     c_el = ud.ufl_coordinate_element()
     family = c_el.family_name
-    lvar = c_el.lagrange_variant
+    lvar = c_el.lagrange_variant if variant is None else basix.LagrangeVariant(variant)
     ct = c_el.cell_type
 
     new_c_el = basix.ufl.element(
