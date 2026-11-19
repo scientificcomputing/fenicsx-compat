@@ -7,7 +7,7 @@ on:
 
 jobs:
   test-code:
-    name: Test on ${{ matrix.label }}
+    name: Test on ${{ matrix.label }} (${{ matrix.scalar }})
     runs-on: ubuntu-24.04
     container: ghcr.io/fenics/dolfinx/dolfinx:${{ matrix.label }}
     env:
@@ -19,9 +19,28 @@ jobs:
       fail-fast: false
       matrix:
         label: ["nightly", "stable", "v0.10.0"]
+        scalar: ["real", "complex"]
 
     steps:
       - uses: actions/checkout@v7
+
+      # Source the image's own script, as its install paths differ between versions
+      - name: Switch to complex mode
+        if: matrix.scalar == 'complex'
+        shell: bash
+        run: |
+          . /usr/local/bin/dolfinx-complex-mode
+          for var in PKG_CONFIG_PATH CMAKE_PREFIX_PATH PETSC_ARCH PYTHONPATH LD_LIBRARY_PATH; do
+            echo "${var}=${!var}" >> "$GITHUB_ENV"
+          done
+
+      # Fail rather than silently testing the real build
+      - name: Check scalar type
+        run: >-
+          python3 -c "import numpy as np, dolfinx;
+          print(dolfinx.__file__, dolfinx.default_scalar_type);
+          assert np.issubdtype(dolfinx.default_scalar_type, np.complexfloating)
+          == ('${{ matrix.scalar }}' == 'complex')"
 
       - name: Update pip
         run: python3 -m pip install --upgrade pip
