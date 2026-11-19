@@ -7,10 +7,12 @@
 # "main" is always built against dolfinx nightly and is not listed here;
 # it is handled automatically by .github/workflows/deploy_docs.yml.
 #
-# When releasing a new minor version (e.g. v0.3.0):
-#   1. Add a new entry at the top with the new tag and a dolfinx image.
-#   2. Update the tag here whenever a new patch supersedes the previous one.
-#      (Old patch docs are intentionally replaced — only one slot per minor.)
+# Releasing (`bump-my-version bump release`, see pyproject.toml) updates this file:
+#   - a new minor version (e.g. v0.3.0) gets a new entry at the top, in the
+#     dolfinx image of the previous entry; update that image by hand if needed.
+#   - a patch (e.g. v0.3.1) replaces the tag of its minor's entry, as old
+#     patch docs are intentionally replaced (only one slot per minor).
+# Those rules match the top entry in this exact layout and key order.
 
 versions:
   - tag: "v0.5.0"
