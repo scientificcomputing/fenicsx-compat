@@ -56,7 +56,7 @@ def test_form_map_returns_index_map_and_block_size(comm):
     msh = dolfinx.mesh.create_unit_square(comm, 4, 4)
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
     v = ufl.TestFunction(V)
-    L = dolfinx.fem.form(v * ufl.dx)
+    L = dolfinx.fem.form(ufl.conj(v) * ufl.dx)
     index_map, bs = form_map(L)
     assert index_map.size_local == V.dofmap.index_map.size_local
     assert bs == V.dofmap.index_map_bs

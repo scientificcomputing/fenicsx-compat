@@ -102,7 +102,7 @@ def test_set_bc_applies_dirichlet_value(comm):
     msh.topology.create_connectivity(tdim - 1, tdim)
     facets = dolfinx.mesh.exterior_facet_indices(msh.topology)
     dofs = dolfinx.fem.locate_dofs_topological(V, tdim - 1, facets)
-    bc = dolfinx.fem.dirichletbc(5.0, dofs, V)
+    bc = dolfinx.fem.dirichletbc(dolfinx.default_scalar_type(5.0), dofs, V)
 
     b = dolfinx.fem.petsc.create_vector(V)
     b.array[:] = 0.0
@@ -119,7 +119,7 @@ def test_apply_lifting_and_set_bc_runs_on_a_simple_poisson_system(comm):
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
     a = dolfinx.fem.form(ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx)
-    L = dolfinx.fem.form(v * ufl.dx)
+    L = dolfinx.fem.form(ufl.conj(v) * ufl.dx)
 
     tdim = msh.topology.dim
     msh.topology.create_connectivity(tdim - 1, tdim)
@@ -128,7 +128,7 @@ def test_apply_lifting_and_set_bc_runs_on_a_simple_poisson_system(comm):
     # Ruling F5: a zero bc value can't distinguish "bc applied" from "vector
     # already zero there", so this uses a non-zero value the assertion below
     # can actually detect.
-    bc = dolfinx.fem.dirichletbc(7.0, dofs, V)
+    bc = dolfinx.fem.dirichletbc(dolfinx.default_scalar_type(7.0), dofs, V)
 
     # This exercises the blocked/nested path (`a` is a list, `a=[[a]]`):
     # `b` is built as a genuine single-block vector via `kind="mpi"` so it
@@ -157,13 +157,13 @@ def test_apply_lifting_and_set_bc_runs_on_a_single_form(comm):
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
     a = dolfinx.fem.form(ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx)
-    L = dolfinx.fem.form(v * ufl.dx)
+    L = dolfinx.fem.form(ufl.conj(v) * ufl.dx)
 
     tdim = msh.topology.dim
     msh.topology.create_connectivity(tdim - 1, tdim)
     facets = dolfinx.mesh.exterior_facet_indices(msh.topology)
     dofs = dolfinx.fem.locate_dofs_topological(V, tdim - 1, facets)
-    bc = dolfinx.fem.dirichletbc(9.0, dofs, V)
+    bc = dolfinx.fem.dirichletbc(dolfinx.default_scalar_type(9.0), dofs, V)
 
     b = dolfinx.fem.petsc.assemble_vector(L)
     apply_lifting_and_set_bc(b, a, [bc])
@@ -181,13 +181,13 @@ def test_apply_lifting_and_set_bc_subtracts_x_for_a_single_form(comm):
     V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
     a = dolfinx.fem.form(ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx)
-    L = dolfinx.fem.form(v * ufl.dx)
+    L = dolfinx.fem.form(ufl.conj(v) * ufl.dx)
 
     tdim = msh.topology.dim
     msh.topology.create_connectivity(tdim - 1, tdim)
     facets = dolfinx.mesh.exterior_facet_indices(msh.topology)
     dofs = dolfinx.fem.locate_dofs_topological(V, tdim - 1, facets)
-    bc = dolfinx.fem.dirichletbc(9.0, dofs, V)
+    bc = dolfinx.fem.dirichletbc(dolfinx.default_scalar_type(9.0), dofs, V)
     # A non-constant `x` and alpha != 1, so that both visibly change the result
     x = dolfinx.fem.Function(V)
     x.interpolate(lambda p: 1.0 + p[0])
