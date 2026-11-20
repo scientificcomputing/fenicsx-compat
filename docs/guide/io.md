@@ -31,11 +31,15 @@ The next two functions depend on the version of ADIOS2 and PyVista, not on DOLFI
 (fn-resolve-adios-scope)=
 ## `resolve_adios_scope`
 
-```python
-fenicsx_compat.resolve_adios_scope(adios2) -> module
+```{versionchanged} 0.7.0
+Added `require_mpi`.
 ```
 
-Returns the namespace that holds ADIOS2's low-level Python bindings ({py:class}`ADIOS<adios2.bindings.ADIOS>`, `Mode`, ...). Raises `ImportError` if ADIOS2 was built without MPI.
+```python
+fenicsx_compat.resolve_adios_scope(adios2, require_mpi=True) -> module
+```
+
+Returns the namespace that holds ADIOS2's low-level Python bindings ({py:class}`ADIOS<adios2.bindings.ADIOS>`, `Mode`, ...). Raises `ImportError` if ADIOS2 was built without MPI, unless `require_mpi=False`. Pass `require_mpi=False` from code that also supports ADIOS2 without MPI, such as the wheels on PyPI, and handle that case itself.
 
 | ADIOS2 | Low-level bindings |
 |---|---|
@@ -47,7 +51,7 @@ adios2 = fenicsx_compat.resolve_adios_scope(fenicsx_compat.require_module("adios
 adios = adios2.ADIOS(MPI.COMM_WORLD)
 ```
 
-The MPI check uses `is_built_with_mpi`, which ADIOS2 2.9 does not have, so in practice it needs ADIOS2 2.10 or newer.
+The MPI check uses `is_built_with_mpi`, which ADIOS2 2.9 does not have, so with the default `require_mpi=True` it needs ADIOS2 2.10 or newer.
 
 (fn-pyvista-allow-snake-case)=
 ## `pyvista_allow_snake_case`
