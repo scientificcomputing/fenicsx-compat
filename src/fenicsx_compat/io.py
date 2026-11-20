@@ -39,10 +39,22 @@ def vtk_cell_type(cell_type: dolfinx.mesh.CellType, num_nodes: int) -> int:
     return get_vtk_cell_type(cell_type, dolfinx.mesh.cell_dim(cell_type))
 
 
-def resolve_adios_scope(adios2):
-    """Resolve the ADIOS2 Python module scope, across the `adios2.bindings` submodule split."""
+def resolve_adios_scope(adios2, require_mpi: bool = True):
+    """Resolve the ADIOS2 Python module scope, across the `adios2.bindings` submodule split.
+
+    Args:
+        adios2: The imported `adios2` module.
+        require_mpi: Raise if ADIOS2 is built without MPI. Pass `False` for code
+            that also supports ADIOS2 without MPI.
+
+    Returns:
+        `adios2.bindings` if it exists, else `adios2`.
+
+    Raises:
+        ImportError: If `require_mpi` is `True` and ADIOS2 is built without MPI.
+    """
     scope = adios2.bindings if hasattr(adios2, "bindings") else adios2
-    if not scope.is_built_with_mpi:
+    if require_mpi and not scope.is_built_with_mpi:
         raise ImportError("ADIOS2 must be built with MPI support")
     return scope
 

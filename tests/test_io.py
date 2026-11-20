@@ -39,6 +39,17 @@ def test_resolve_adios_scope_raises_when_not_built_with_mpi():
         resolve_adios_scope(FakeAdios2())
 
 
+def test_resolve_adios_scope_without_mpi_when_not_required():
+    class FakeScope:
+        is_built_with_mpi = False
+
+    class FakeAdios2:
+        bindings = FakeScope()
+
+    adios2 = FakeAdios2()
+    assert resolve_adios_scope(adios2, require_mpi=False) is adios2.bindings
+
+
 def test_pyvista_allow_snake_case_sets_new_style_attribute():
     class FakePyvista:
         _VTK_SNAKE_CASE_STATE = "forbid"
